@@ -479,3 +479,7 @@ button.react:active { transform: scale(.92); }
 .g-add input { flex: 1; min-width: 0; height: 38px; padding: 0 12px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--bg); outline: none; }
 .g-leave { color: var(--accent); margin-bottom: 20px; }
 @media (max-width: 440px) { .g-cal .chip i { display: none; } }
+
+/* 시간 고르기 (오전/오후 · 시 · 분) */
+.time-pick { display: flex; gap: 6px; }
+.time-pick select { flex: 1; min-width: 0; height: 48px; padding: 0 8px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--card); color: var(--text); }

@@ -636,6 +636,25 @@
     </section>`;
   }
 
+  // 시간 고르기: 오전/오후 · 시 · 분을 따로 골라요 (저장은 "14:30" 형식)
+  function timePicker(value) {
+    const [h, m] = value ? value.split(':').map(Number) : [null, null];
+    const ampm = h === null ? '' : h < 12 ? 'am' : 'pm';
+    const h12 = h === null ? '' : (h % 12 || 12);
+    const opt = (v, label, sel) => `<option value="${v}" ${sel ? 'selected' : ''}>${label}</option>`;
+    return `<div class="time-pick">
+      <select name="ampm" aria-label="오전/오후">${opt('', '시간 없음', !ampm)}${opt('am', '오전', ampm === 'am')}${opt('pm', '오후', ampm === 'pm')}</select>
+      <select name="hour" aria-label="시">${Array.from({ length: 12 }, (_, i) => i + 1).map((n) => opt(n, `${n}시`, n === (h12 || 9))).join('')}</select>
+      <select name="minute" aria-label="분">${[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((n) => opt(n, `${String(n).padStart(2, '0')}분`, n === (m === null ? 0 : m - (m % 5)))).join('')}</select>
+    </div>`;
+  }
+  function readTimePicker(f) {
+    if (!f.ampm.value) return '';
+    let h = Number(f.hour.value) % 12;
+    if (f.ampm.value === 'pm') h += 12;
+    return `${String(h).padStart(2, '0')}:${String(Number(f.minute.value)).padStart(2, '0')}`;
+  }
+
   // ---------- 팝업(모달) ----------
   function renderModal() {
     const m = st.modal;
@@ -648,10 +667,8 @@
       <form data-form="todo">
         <label class="field"><span>할 일 / 일정</span><input name="title" value="${esc(t?.title || '')}" maxlength="80" required></label>
         <label class="field"><span>카테고리</span><select name="categoryId">${cats.map((c) => `<option value="${c.id}" ${(t?.categoryId || m.categoryId) === c.id ? 'selected' : ''}>${esc(c.emoji)} ${esc(c.name)}</option>`).join('')}</select></label>
-        <div class="field-row">
-          <label class="field"><span>날짜</span><input type="date" name="date" value="${t?.date || st.selDate}" required></label>
-          <label class="field"><span>시간 (선택)</span><input type="time" name="time" value="${t?.time || ''}"></label>
-        </div>
+        <label class="field"><span>날짜</span><input type="date" name="date" value="${t?.date || st.selDate}" required></label>
+        <div class="field"><span>시간 (선택)</span>${timePicker(t?.time || '')}</div>
         <div class="field"><span>공개범위</span><div class="vis-pick">${Object.entries(S.VIS).map(([k, v]) => `<label><input type="radio" name="visibility" value="${k}" ${vis === k ? 'checked' : ''}><span>${v.icon}<br>${v.label}</span></label>`).join('')}</div></div>
         <div class="modal-actions">
           ${t ? `<button type="button" class="btn danger-ghost" data-action="delete-todo" data-id="${t.id}">삭제</button>
@@ -883,7 +900,7 @@
       return false;
     },
     todo(f) {
-      const data = { title: f.title.value.trim(), categoryId: f.categoryId.value, date: f.date.value, time: f.time.value, visibility: f.visibility.value };
+      const data = { title: f.title.value.trim(), categoryId: f.categoryId.value, date: f.date.value, time: readTimePicker(f), visibility: f.visibility.value };
       if (!data.title) return false;
       if (st.modal.id) S.updateTodo(st.modal.id, data); else S.addTodo(data);
       st.modal = null;
