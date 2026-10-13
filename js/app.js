@@ -502,6 +502,7 @@
   // ---------- MY ----------
   function renderMy() {
     const me = S.me();
+    if (st.hasPw === undefined) { st.hasPw = null; S.hasPassword().then((v) => { st.hasPw = v; render(); }); }
     need([me.id], S.addDays(S.today(), -29), S.today());
     const s = S.stats(me.id);
     const max = Math.max(1, ...s.daily.map((d) => d.done));
@@ -548,7 +549,9 @@
         <label class="set-row"><span>새 할 일 기본 공개범위</span>
           <select data-change="default-vis">${Object.entries(S.VIS).map(([k, v]) => `<option value="${k}" ${me.defaultVis === k ? 'selected' : ''}>${v.icon} ${v.label}</option>`).join('')}</select></label>
         <button class="set-row" data-action="open-cats"><span>카테고리 관리</span><span class="chev">›</span></button>
+        ${st.hasPw ? '<button class="set-row" data-action="open-password"><span>🔑 비밀번호 바꾸기</span><span class="chev">›</span></button>' : ''}
         <button class="set-row" data-action="logout"><span>로그아웃</span><span class="chev">›</span></button>
+        <button class="set-row danger" data-action="open-delete-account"><span>회원 탈퇴</span><span class="chev">›</span></button>
       </div>
       <p class="muted center small">갓생메이트 v0.3 · @${esc(me.username)}</p>
     </main>`;
@@ -799,6 +802,25 @@
         ${m.error ? `<p class="error">${esc(m.error)}</p>` : ''}
         <div class="modal-actions"><button type="button" class="btn ghost" data-action="close-modal">취소</button><button type="submit" class="btn primary">저장</button></div>
       </form>`;
+    } else if (m.type === 'password') {
+      inner = `<h2>비밀번호 바꾸기</h2>
+      <form data-form="password">
+        <label class="field"><span>지금 비밀번호</span><input type="password" name="current" autocomplete="current-password" required></label>
+        <label class="field"><span>새 비밀번호 (8자 이상)</span><input type="password" name="next" autocomplete="new-password" minlength="8" required></label>
+        <label class="field"><span>새 비밀번호 한 번 더</span><input type="password" name="next2" autocomplete="new-password" minlength="8" required></label>
+        ${m.error ? `<p class="error">${esc(m.error)}</p>` : ''}
+        <div class="modal-actions"><button type="button" class="btn ghost" data-action="close-modal">취소</button><button type="submit" class="btn primary" ${st.busy ? 'disabled' : ''}>바꾸기</button></div>
+      </form>`;
+    } else if (m.type === 'delete-account') {
+      inner = `<h2>회원 탈퇴</h2>
+      <form data-form="delete-account">
+        <p class="set-help">탈퇴하면 <b>할 일, 카테고리, 받은 공감, 팔로우, 그룹 일정</b>이 모두 지워지고 <b>되돌릴 수 없어요.</b><br>
+          내가 방장인 그룹은 다른 멤버에게 방장이 넘어가요. (혼자 있는 그룹은 삭제돼요)</p>
+        ${st.hasPw ? '<label class="field"><span>비밀번호 확인</span><input type="password" name="password" autocomplete="current-password" required></label>' : ''}
+        <label class="field"><span>확인을 위해 <b>탈퇴</b> 라고 입력해주세요</span><input name="confirm" autocomplete="off" required></label>
+        ${m.error ? `<p class="error">${esc(m.error)}</p>` : ''}
+        <div class="modal-actions"><button type="button" class="btn ghost" data-action="close-modal">취소</button><button type="submit" class="btn danger-ghost" ${st.busy ? 'disabled' : ''}>탈퇴하기</button></div>
+      </form>`;
     }
     return `<div class="modal-bg" data-action="close-modal"><div class="sheet" data-stop>${inner}</div></div>`;
   }
@@ -923,9 +945,11 @@
     'edit-profile'() { st.modal = { type: 'profile' }; },
     'avatar-emoji'({ e }) { st.modal.avatar = e; },
     'close-modal'() { st.modal = null; },
+    'open-password'() { st.modal = { type: 'password' }; },
+    'open-delete-account'() { st.modal = { type: 'delete-account' }; },
     logout() {
       if (!confirm('로그아웃할까요?')) return false;
-      Object.assign(st, { tab: 'today', view: null, modal: null, authMode: 'login', authError: '' });
+      Object.assign(st, { tab: 'today', view: null, modal: null, authMode: 'login', authError: '', hasPw: undefined });
       // 로그아웃하면 이 기기로 오던 푸시도 끊음 (다음 사람이 내 알림을 받지 않게)
       turnOffNotify().finally(() => S.logout().then(render));
       return false;
@@ -951,6 +975,15 @@
     st.busy = true; st.authError = ''; render();
     try { await fn(); Object.assign(st, { tab: 'today', view: null, selDate: S.today(), calMonth: S.today().slice(0, 7) }); preparePush(); }
     catch (err) { st.authError = err.message; }
+    st.busy = false; render();
+  }
+
+  // 비밀번호 바꾸기·탈퇴도 서버 응답을 기다림 (실패하면 팝업 안에 이유 표시)
+  async function modalRun(fn) {
+    if (st.busy) return;
+    st.busy = true; st.modal.error = ''; render();
+    try { await fn(); }
+    catch (err) { if (st.modal) st.modal.error = err.message; }
     st.busy = false; render();
   }
 
@@ -1011,6 +1044,26 @@
       if (!data.name) return false;
       if (st.modal.id) S.updateCategory(st.modal.id, data); else S.addCategory(data);
       st.modal = { type: 'cats' };
+    },
+    password(f) {
+      if (f.next.value !== f.next2.value) { st.modal.error = '새 비밀번호가 서로 달라요.'; return; }
+      modalRun(async () => {
+        await S.changePassword(f.current.value, f.next.value);
+        st.modal = null;
+        alert('비밀번호를 바꿨어요. 다음 로그인부터 새 비밀번호를 쓰세요.');
+      });
+      return false;
+    },
+    'delete-account'(f) {
+      if (f.confirm.value.trim() !== '탈퇴') { st.modal.error = '"탈퇴" 라고 정확히 입력해주세요.'; return; }
+      const pw = f.password?.value;
+      modalRun(async () => {
+        await S.deleteAccount(pw);
+        await turnOffNotify().catch(() => {}); // 이 기기 푸시 등록도 정리
+        Object.assign(st, { tab: 'today', view: null, modal: null, authMode: 'login', authError: '', hasPw: undefined, groupId: null });
+        alert('탈퇴가 완료됐어요. 그동안 고마웠어요!');
+      });
+      return false;
     },
     profile(f) {
       try {

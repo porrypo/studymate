@@ -276,6 +276,36 @@
 
     async logout() { await sb.auth.signOut(); clearAll(); },
 
+    // 아이디·비밀번호로 가입한 계정인지 (구글 계정은 비밀번호가 없음)
+    async hasPassword() {
+      const { data } = await sb.auth.getSession();
+      return (data.session?.user?.app_metadata?.provider || 'email') === 'email';
+    },
+
+    // 비밀번호 바꾸기: 지금 비밀번호가 맞는지 먼저 확인
+    async changePassword(current, next) {
+      if (!current || !next) throw new Error('모든 항목을 입력해주세요.');
+      if (next.length < 8) throw new Error('새 비밀번호는 8자 이상이어야 해요.');
+      if (next === current) throw new Error('지금 비밀번호와 다른 비밀번호를 입력해주세요.');
+      const me = S.me();
+      const { error: e1 } = await sb.auth.signInWithPassword({ email: toEmail(me.username), password: current });
+      if (e1) throw new Error('지금 비밀번호가 맞지 않아요.');
+      const { error } = await sb.auth.updateUser({ password: next });
+      if (error) throw new Error('바꾸지 못했어요. (' + error.message + ')');
+    },
+
+    // 회원 탈퇴: 내 데이터 전부 삭제 (되돌릴 수 없음)
+    async deleteAccount(password) {
+      if (await S.hasPassword()) {
+        const { error: e1 } = await sb.auth.signInWithPassword({ email: toEmail(S.me().username), password: password || '' });
+        if (e1) throw new Error('비밀번호가 맞지 않아요.');
+      }
+      const { error } = await sb.rpc('delete_my_account');
+      if (error) throw new Error('탈퇴하지 못했어요. (' + error.message + ')');
+      await sb.auth.signOut({ scope: 'local' }).catch(() => {});
+      clearAll();
+    },
+
     updateProfile(patch) {
       const me = S.me();
       if (patch.nickname !== undefined) {
