@@ -76,9 +76,30 @@
   const loading = new Set();
   let onChange = () => {};
 
+  // 그룹(약속 잡기) 데이터 — 개인 할 일과 따로 보관
+  let groupsLoaded = false, groups = new Map(), gMembers = [], gBusy = new Map(), gLoadedMonths = new Set();
+  const fromGroup = (r) => ({ id: r.id, name: r.name, code: r.code, createdBy: r.created_by });
+  const fromMember = (r) => ({ groupId: r.group_id, userId: r.user_id, color: safeColor(r.color) });
+  const fromBusy = (r) => ({ id: r.id, groupId: r.group_id, userId: r.user_id, date: r.date, label: r.label, createdAt: Date.parse(r.created_at) });
+  async function loadGroups() {
+    const [g, m] = await Promise.all([sb.from('groups').select('*'), sb.from('group_members').select('*')]);
+    groups = new Map(must(g).map((r) => [r.id, fromGroup(r)]));
+    gMembers = must(m).map(fromMember);
+    groupsLoaded = true;
+  }
+  // key = "groupId|YYYY-MM"
+  async function fetchBusy(keys) {
+    const rows = (await Promise.all(keys.map((k) => {
+      const [gid, ym] = k.split('|');
+      return sb.from('group_busy').select('*').eq('group_id', gid).gte('date', ym + '-01').lte('date', monthEnd(ym)).limit(3000).then(must);
+    }))).flat();
+    return rows.map(fromBusy);
+  }
+
   function clearAll() {
     meId = null; users = new Map(); follows = []; cats = new Map(); todos = new Map(); reactions = []; notifs = [];
     loadedMonths = new Set(); loadedCatUsers = new Set(); loading.clear();
+    groupsLoaded = false; groups = new Map(); gMembers = []; gBusy = new Map(); gLoadedMonths = new Set();
   }
 
   // 서버 저장이 실패하면 알려주고 서버 상태로 다시 맞춤
@@ -183,6 +204,14 @@
         cats = new Map(gotCats.map((c) => [c.id, c]));
         onChange();
       } catch (e) { console.error(e); }
+      if (groupsLoaded) {
+        try {
+          await loadGroups();
+          const gkeys = [...gLoadedMonths].filter((k) => groups.has(k.split('|')[0]));
+          gBusy = new Map((await fetchBusy(gkeys)).map((b) => [b.id, b]));
+          onChange();
+        } catch (e) { console.error(e); }
+      }
     },
 
     // ---------- 회원 ----------
@@ -360,6 +389,69 @@
       if (!notifs.some((n) => !n.read)) return;
       notifs.forEach((n) => { n.read = true; });
       send(sb.from('notifications').update({ read: true }).eq('to_user', meId).eq('read', false), '알림');
+    },
+
+    // ---------- 그룹 (약속 잡기) ----------
+    groupsReady() { return groupsLoaded; },
+    async ensureGroups() { if (groupsLoaded || !meId) return false; try { await loadGroups(); return true; } catch (e) { console.error(e); return false; } },
+    groups() { return [...groups.values()].sort((a, b) => a.name.localeCompare(b.name, 'ko')); },
+    group(id) { return groups.get(id) || null; },
+    groupMembers(gid) {
+      return gMembers.filter((m) => m.groupId === gid).map((m) => ({ ...m, user: users.get(m.userId) })).filter((m) => m.user)
+        .sort((a, b) => (a.userId === meId ? -1 : b.userId === meId ? 1 : a.user.nickname.localeCompare(b.user.nickname, 'ko')));
+    },
+    async prefetchGroup(gid, from, to) {
+      const keys = monthsBetween(from, to).map((ym) => `${gid}|${ym}`).filter((k) => !gLoadedMonths.has(k) && !loading.has('g|' + k));
+      if (!keys.length) return false;
+      keys.forEach((k) => loading.add('g|' + k));
+      try {
+        (await fetchBusy(keys)).forEach((b) => gBusy.set(b.id, b));
+        keys.forEach((k) => gLoadedMonths.add(k));
+        return true;
+      } catch (e) { console.error(e); return false; }
+      finally { keys.forEach((k) => loading.delete('g|' + k)); }
+    },
+    busyBetween(gid, from, to) { return [...gBusy.values()].filter((b) => b.groupId === gid && b.date >= from && b.date <= to); },
+    async createGroup(name) {
+      name = (name || '').trim();
+      if (!name) throw new Error('그룹 이름을 적어주세요.');
+      const { data, error } = await sb.rpc('create_group', { p_name: name });
+      if (error) throw new Error(error.message);
+      await loadGroups();
+      return data[0].group_id;
+    },
+    async joinGroup(code) {
+      code = (code || '').trim().toUpperCase();
+      if (!/^[A-Z0-9]{6}$/.test(code)) throw new Error('코드는 영어·숫자 6자리예요.');
+      const { data, error } = await sb.rpc('join_group', { p_code: code });
+      if (error) throw new Error(error.message);
+      await loadGroups();
+      return data;
+    },
+    async leaveGroup(gid) {
+      const { error } = await sb.from('group_members').delete().eq('group_id', gid).eq('user_id', meId);
+      if (error) throw new Error(error.message);
+      groups.delete(gid);
+      gMembers = gMembers.filter((m) => m.groupId !== gid);
+      gBusy = new Map([...gBusy].filter(([, b]) => b.groupId !== gid));
+    },
+    setGroupColor(gid, color) {
+      color = safeColor(color);
+      const m = gMembers.find((x) => x.groupId === gid && x.userId === meId);
+      if (!m) return;
+      m.color = color;
+      send(sb.from('group_members').update({ color }).eq('group_id', gid).eq('user_id', meId), '색 저장');
+    },
+    addBusy(gid, date, label) {
+      label = (label || '').trim().slice(0, 20);
+      const b = { id: uuid(), groupId: gid, userId: meId, date, label, createdAt: Date.now() };
+      gBusy.set(b.id, b);
+      send(sb.from('group_busy').insert({ id: b.id, group_id: gid, user_id: meId, date, label }), '일정 저장');
+      return b;
+    },
+    deleteBusy(id) {
+      gBusy.delete(id);
+      send(sb.from('group_busy').delete().eq('id', id), '일정 삭제');
     },
 
     // ---------- 통계 (최근 30일) ----------

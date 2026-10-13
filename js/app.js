@@ -23,6 +23,10 @@
     picker: null,            // 이모티콘 목록이 열린 할 일 id
     authMode: 'login',
     authError: '',
+    groupId: null,           // 그룹 탭에서 보고 있는 그룹
+    gMonth: S.today().slice(0, 7),
+    gDate: S.today(),
+    groupForm: null,         // 'create' | 'join' | null
   };
 
   // ---------- 작은 도우미 ----------
@@ -70,8 +74,9 @@
     my: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c.6-4 3.8-6.5 8-6.5s7.4 2.5 8 6.5"/></svg>',
     bell: '<svg viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg>',
     back: '<svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>',
+    group: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/><circle cx="9.5" cy="15" r="1.6"/><circle cx="14.5" cy="15" r="1.6"/></svg>',
   };
-  const TABS = [['today', '오늘'], ['feed', '피드'], ['friends', '친구'], ['my', 'MY']];
+  const TABS = [['today', '오늘'], ['feed', '피드'], ['friends', '친구'], ['group', '그룹'], ['my', 'MY']];
 
   // 화면에 필요한 데이터가 아직 없으면 서버에서 받아온 뒤 다시 그림
   function need(ids, from, to) { S.prefetch(ids, from, to).then((changed) => { if (changed) render(); }); }
@@ -87,7 +92,7 @@
     let body;
     if (st.view?.type === 'profile') body = renderProfile(st.view.userId);
     else if (st.view?.type === 'notifs') body = renderNotifs();
-    else body = ({ today: renderToday, feed: renderFeed, friends: renderFriends, my: renderMy })[st.tab]();
+    else body = ({ today: renderToday, feed: renderFeed, friends: renderFriends, group: renderGroup, my: renderMy })[st.tab]();
     $app.innerHTML = `<div class="shell">${renderSidebar()}<div class="main">${body}</div></div>${renderTabbar()}${st.modal ? renderModal() : ''}`;
   }
 
@@ -505,6 +510,144 @@
         </select></label>`;
   }
 
+  // =============================================================
+  //  그룹 (약속 잡기) — 개인 할 일과 완전히 별개
+  //  각자 "안 되는 날"을 적고, 아무도 안 적은 날 = 다 같이 만날 수 있는 날
+  // =============================================================
+  const GROUP_COLORS = ['#FF6B6B', '#4D96FF', '#6BCB77', '#FFB400', '#B983FF', '#FF8FB1', '#2EC4B6', '#FF9F45', '#8D99AE', '#A0522D'];
+
+  function renderGroup() {
+    if (!S.groupsReady()) {
+      S.ensureGroups().then((ok) => ok && render());
+      return `${header('그룹')}<main class="page"><p class="muted center">불러오는 중…</p></main>`;
+    }
+    const list = S.groups();
+    if (st.groupId && !S.group(st.groupId)) st.groupId = null;
+    if (!st.groupId && list.length) st.groupId = list[0].id;
+    const g = st.groupId ? S.group(st.groupId) : null;
+
+    const chips = `<div class="g-chips">
+      ${list.map((x) => `<button class="g-chip ${x.id === st.groupId ? 'on' : ''}" data-action="g-select" data-id="${x.id}">${esc(x.name)}</button>`).join('')}
+      <button class="g-chip add" data-action="g-form" data-form="create">+ 새 그룹</button>
+      <button class="g-chip add" data-action="g-form" data-form="join">🔑 코드로 참여</button>
+    </div>`;
+    const form = st.groupForm === 'create'
+      ? `<form class="card g-form" data-form="g-create"><b>새 그룹 만들기</b>
+          <input name="name" placeholder="그룹 이름 (예: 고등학교 친구들)" maxlength="20" autocomplete="off" required>
+          <div class="modal-actions"><button type="button" class="btn ghost" data-action="g-form" data-form="">취소</button><button class="btn primary" ${st.busy ? 'disabled' : ''}>만들기</button></div></form>`
+      : st.groupForm === 'join'
+        ? `<form class="card g-form" data-form="g-join"><b>코드로 참여하기</b>
+            <input name="code" placeholder="친구에게 받은 6자리 코드" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" required>
+            <div class="modal-actions"><button type="button" class="btn ghost" data-action="g-form" data-form="">취소</button><button class="btn primary" ${st.busy ? 'disabled' : ''}>참여하기</button></div></form>`
+        : '';
+
+    if (!g) {
+      return `${header('그룹')}<main class="page">${chips}${form || `<div class="empty">
+        <div class="empty-emoji">🤝</div>
+        <p>친구들과 약속 잡는 곳이에요.<br>각자 <b>안 되는 날</b>을 적으면, <b>다 같이 되는 날</b>이 보여요.</p>
+        <button class="btn primary" data-action="g-form" data-form="create">+ 그룹 만들기</button>
+        <button class="btn ghost" data-action="g-form" data-form="join">🔑 코드로 참여</button></div>`}</main>`;
+    }
+
+    const me = S.me();
+    const members = S.groupMembers(g.id);
+    const colorOf = Object.fromEntries(members.map((m) => [m.userId, m.color]));
+    const myColor = colorOf[me.id] || GROUP_COLORS[0];
+    const busyToday = S.busyBetween(g.id, st.gDate, st.gDate).sort((a, b) => a.createdAt - b.createdAt);
+
+    return `${header('그룹')}<main class="page">${chips}${form}
+      <section class="card g-head">
+        <div class="g-title"><h2>${esc(g.name)}</h2>
+          <button class="g-code" data-action="g-copy" title="눌러서 복사">코드 <b>${esc(g.code)}</b> 📋</button></div>
+        <div class="g-members">${members.map((m) => `<span class="g-member" style="--c:${m.color}"><i></i>${esc(m.user.nickname)}${m.userId === me.id ? ' (나)' : ''}</span>`).join('')}</div>
+        <div class="g-mycolor"><span class="label">내 색</span>
+          ${GROUP_COLORS.map((c) => `<button class="${c === myColor ? 'on' : ''}" style="background:${c}" data-action="g-color" data-color="${c}" aria-label="색 ${c}"></button>`).join('')}
+          <label class="${GROUP_COLORS.includes(myColor) ? '' : 'on'}" title="직접 고르기"><input type="color" value="${myColor}" data-change="g-color" aria-label="색 직접 고르기"></label>
+        </div>
+      </section>
+      <div class="split">
+        <div class="col-main">${renderGroupCalendar(g, colorOf)}</div>
+        <div class="col-side">
+          <div class="day-head"><h2>${fmtDay(st.gDate)}</h2></div>
+          <section class="card">
+            ${busyToday.length
+              ? `<ul class="busy-list">${busyToday.map((b) => {
+                  const u = S.user(b.userId);
+                  return `<li style="--c:${colorOf[b.userId] || '#8E8E93'}"><i></i><b>${esc(u ? u.nickname : '?')}</b><span>${esc(b.label || '안 돼요')}</span>
+                    ${b.userId === me.id ? `<button class="icon-btn sm" data-action="g-busy-del" data-id="${b.id}" aria-label="지우기">✕</button>` : ''}</li>`;
+                }).join('')}</ul>`
+              : '<p class="g-allfree">🎉 이 날은 <b>다 같이 돼요!</b></p>'}
+            <form class="g-add" data-form="g-busy">
+              <span class="dot" style="background:${myColor}"></span>
+              <input name="label" placeholder="이 날 안 되는 이유 (예: 알바)" maxlength="20" autocomplete="off">
+              <button class="btn sm primary">안 돼요</button>
+            </form>
+            <p class="hint">내가 적은 것만 지울 수 있어요. 개인 할 일과는 따로예요.</p>
+          </section>
+          ${renderFreeDays(g)}
+          <button class="btn ghost full g-leave" data-action="g-leave">그룹 나가기</button>
+        </div>
+      </div>
+    </main>`;
+  }
+
+  function renderGroupCalendar(g, colorOf) {
+    const [y, m] = st.gMonth.split('-').map(Number);
+    const first = new Date(y, m - 1, 1);
+    const start = S.addDays(S.fmtDate(first), -first.getDay());
+    const weeks = Math.ceil((first.getDay() + new Date(y, m, 0).getDate()) / 7);
+    const end = S.addDays(start, weeks * 7 - 1);
+    S.prefetchGroup(g.id, start, end).then((changed) => changed && render());
+    const byDate = {};
+    S.busyBetween(g.id, start, end).forEach((b) => (byDate[b.date] ||= []).push(b));
+    const t0 = S.today();
+    let cells = '';
+    for (let i = 0; i < weeks * 7; i++) {
+      const date = S.addDays(start, i);
+      const d = S.parseDate(date);
+      const list = (byDate[date] || []).sort((a, b) => a.createdAt - b.createdAt);
+      const inMonth = d.getMonth() + 1 === m;
+      const free = inMonth && date >= t0 && !list.length;
+      const chips = list.slice(0, 4).map((b) => {
+        const u = S.user(b.userId);
+        return `<div class="chip" style="--c:${colorOf[b.userId] || '#8E8E93'}"><i>${esc(u ? u.nickname : '?')}</i> ${esc(b.label || '안 돼요')}</div>`;
+      }).join('');
+      cells += `<button class="cal-cell ${inMonth ? '' : 'out'} ${date === st.gDate ? 'sel' : ''} ${date === t0 ? 'today' : ''} ${d.getDay() === 0 ? 'sun' : ''} ${free ? 'free' : ''} ${date < t0 ? 'past' : ''}" data-action="g-date" data-date="${date}">
+        <span class="num">${d.getDate()}</span>${chips}${list.length > 4 ? `<div class="more">+${list.length - 4}명</div>` : ''}${free ? '<div class="free-mark">✓ 다 돼요</div>' : ''}
+      </button>`;
+    }
+    return `<section class="card calendar g-cal">
+      <div class="cal-head">
+        <h3>${y}년 ${m}월</h3>
+        <div class="cal-nav">
+          <button class="btn sm ghost" data-action="g-today">이번 달</button>
+          <button class="icon-btn sm" data-action="g-month" data-dir="-1" aria-label="이전 달">‹</button>
+          <button class="icon-btn sm" data-action="g-month" data-dir="1" aria-label="다음 달">›</button>
+        </div>
+      </div>
+      <div class="cal-week">${WEEK.map((w) => `<span>${w}</span>`).join('')}</div>
+      <div class="cal-grid">${cells}</div>
+    </section>`;
+  }
+
+  // 이번 달 중 오늘 이후, 아무도 안 된다고 안 한 날
+  function renderFreeDays(g) {
+    const [y, m] = st.gMonth.split('-').map(Number);
+    const t0 = S.today();
+    const last = new Date(y, m, 0).getDate();
+    const busy = new Set(S.busyBetween(g.id, `${st.gMonth}-01`, `${st.gMonth}-${String(last).padStart(2, '0')}`).map((b) => b.date));
+    const days = [];
+    for (let d = 1; d <= last; d++) {
+      const date = `${st.gMonth}-${String(d).padStart(2, '0')}`;
+      if (date >= t0 && !busy.has(date)) days.push(date);
+    }
+    return `<section class="card"><div class="label">🎉 ${m}월에 다 같이 되는 날 (${days.length}일)</div>
+      <div class="free-days">${days.length ? days.map((date) => {
+        const d = S.parseDate(date);
+        return `<button class="free-day ${date === st.gDate ? 'on' : ''}" data-action="g-date" data-date="${date}">${d.getDate()}일 (${WEEK[d.getDay()]})</button>`;
+      }).join('') : '<span class="muted small">이번 달은 다 같이 되는 날이 없어요 😢</span>'}</div></section>`;
+  }
+
   // ---------- 팝업(모달) ----------
   function renderModal() {
     const m = st.modal;
@@ -610,6 +753,26 @@
     },
     theme({ color }) { saveTheme({ color }); },
     'feed-mode'({ mode }) { st.feedMode = mode; },
+
+    // 그룹
+    'g-select'({ id }) { st.groupId = id; st.groupForm = null; },
+    'g-form'({ form }) { st.groupForm = form || null; },
+    'g-date'({ date }) { st.gDate = date; if (date.slice(0, 7) !== st.gMonth) st.gMonth = date.slice(0, 7); },
+    'g-month'({ dir }) { st.gMonth = shiftMonth(st.gMonth, +dir); },
+    'g-today'() { st.gMonth = S.today().slice(0, 7); st.gDate = S.today(); },
+    'g-color'({ color }) { S.setGroupColor(st.groupId, color); },
+    'g-busy-del'({ id }) { S.deleteBusy(id); },
+    'g-copy'() {
+      const g = S.group(st.groupId); if (!g) return false;
+      navigator.clipboard?.writeText(g.code).then(() => alert(`코드 ${g.code} 를 복사했어요. 친구에게 보내주세요!`), () => alert(`코드: ${g.code}`));
+      return false;
+    },
+    'g-leave'() {
+      const g = S.group(st.groupId); if (!g) return false;
+      if (!confirm(`'${g.name}' 그룹에서 나갈까요? 내가 적은 일정도 같이 지워져요.`)) return false;
+      S.leaveGroup(g.id).then(() => { st.groupId = null; render(); }, (e) => alert('나가지 못했어요: ' + e.message));
+      return false;
+    },
     'week-move'({ dir }) { st.weekStart = S.addDays(st.weekStart, 7 * dir); },
     'week-today'() { st.weekStart = weekStartOf(S.today()); },
 
@@ -667,6 +830,15 @@
     st.busy = false; render();
   }
 
+  // 그룹 만들기·참여는 서버 응답을 기다림
+  async function groupRun(fn) {
+    if (st.busy) return;
+    st.busy = true; render();
+    try { const id = await fn(); st.groupId = id; st.groupForm = null; }
+    catch (err) { alert(err.message); }
+    st.busy = false; render();
+  }
+
   // ---------- 폼 제출 ----------
   const forms = {
     login(f) {
@@ -687,6 +859,21 @@
         render();
         document.querySelector(`form[data-cat="${catId}"] input`)?.focus(); // 연속 입력
       }
+      return false;
+    },
+    'g-create'(f) {
+      groupRun(() => S.createGroup(f.name.value));
+      return false;
+    },
+    'g-join'(f) {
+      groupRun(() => S.joinGroup(f.code.value));
+      return false;
+    },
+    'g-busy'(f) {
+      if (!st.groupId) return false;
+      S.addBusy(st.groupId, st.gDate, f.label.value);
+      render();
+      document.querySelector('form[data-form="g-busy"] input')?.focus();
       return false;
     },
     todo(f) {
@@ -732,6 +919,7 @@
       wrap.querySelector('input[type=radio]').checked = true;
       wrap.querySelector('span').style.setProperty('--pick', e.target.value);
     }
+    if (k === 'g-color') { S.setGroupColor(st.groupId, e.target.value); render(); }
     if (k === 'theme-color') { saveTheme({ color: e.target.value }); render(); }
     if (k === 'theme-mode') { saveTheme({ mode: e.target.value }); }
     if (k === 'default-vis') { S.updateProfile({ defaultVis: e.target.value }); }
