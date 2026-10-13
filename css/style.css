@@ -146,19 +146,6 @@ input, select { font: inherit; color: inherit; }
 .chip.done { opacity: .5; text-decoration: line-through; }
 .more { font-size: 10px; color: var(--sub); padding-left: 4px; }
 
-/* 친구 겹쳐보기 토글 */
-.overlay-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 0 6px 10px; }
-.overlay-row .label { margin-right: 2px; }
-.ov {
-  --c: var(--text);
-  display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 10px 0 4px; border-radius: 999px;
-  border: 1.5px solid var(--line); font-size: 13px; font-weight: 600; color: var(--sub);
-}
-.ov .avatar { filter: grayscale(1); opacity: .6; }
-.ov.on { border-color: var(--c); color: var(--text); background: color-mix(in srgb, var(--c) 14%, transparent); }
-.ov.on .avatar { filter: none; opacity: 1; }
-.ov.me { cursor: default; }
-
 /* ============ 선택한 날 ============ */
 .day-head { display: flex; align-items: center; gap: 8px; margin: 20px 4px 10px; }
 .day-head h2 { margin: 0; font-size: 20px; }
@@ -194,11 +181,6 @@ input, select { font: inherit; color: inherit; }
 .quick-add .plus { width: 22px; text-align: center; color: var(--sub); font-size: 20px; }
 .quick-add input { flex: 1; border: 0; background: none; outline: none; height: 34px; }
 .quick-add input::placeholder { color: var(--sub); }
-
-/* 함께 보는 친구 일정 */
-.friend-day { background: var(--card); border-radius: var(--radius); padding: 10px 14px 6px; margin-bottom: 10px; border-left: 4px solid var(--fc); }
-.friend-day header { display: flex; align-items: center; gap: 8px; cursor: pointer; padding-bottom: 2px; }
-.friend-day header .muted { margin-left: auto; font-size: 13px; }
 
 /* 공감 이모티콘 */
 .reacts { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
@@ -411,3 +393,16 @@ button.react:active { transform: scale(.92); }
 .or { width: 100%; max-width: 340px; display: flex; align-items: center; gap: 10px; color: var(--sub); font-size: 13px; margin: 6px 0; }
 .or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 .btn.google { width: 100%; max-width: 340px; background: var(--card); border: 1.5px solid var(--line); gap: 10px; }
+
+/* ============ 공개범위별 묶음 (전체 공개 / 팔로워만 / 나만 보기) ============ */
+.vis-sec { background: var(--card); border-radius: var(--radius); padding: 12px 14px 8px; margin-bottom: 12px; border-top: 4px solid var(--vis); }
+.vis-public { --vis: #34C759; }
+.vis-followers { --vis: #007AFF; }
+.vis-private { --vis: #8E8E93; }
+.vis-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.vis-name { font-weight: 800; font-size: 15px; }
+.vis-hint { margin-left: auto; font-size: 12px; color: var(--sub); }
+.cat-pick {
+  flex: none; max-width: 110px; height: 30px; padding: 0 6px; border-radius: 8px;
+  border: 1.5px solid var(--line); background: var(--bg); font-size: 12px; color: var(--text);
+}

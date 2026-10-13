@@ -32,10 +32,6 @@
   const timeAgo = (ts) => { const s = (Date.now() - ts) / 1000; if (s < 60) return '방금'; if (s < 3600) return `${Math.floor(s / 60)}분 전`; if (s < 86400) return `${Math.floor(s / 3600)}시간 전`; return `${Math.floor(s / 86400)}일 전`; };
   const byTime = (a, b) => (a.time || '99').localeCompare(b.time || '99') || a.order - b.order;
 
-  // 친구마다 고정 색 (캘린더 겹쳐보기용)
-  function friendColor(id) { let h = 0; for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0; return S.COLORS[h % 10]; }
-  const shortTag = (u) => (u.avatar && !u.avatar.startsWith('data:') ? u.avatar : u.nickname[0]);
-
   function avatar(u, size = 40) {
     if (!u) return '';
     const style = `width:${size}px;height:${size}px;font-size:${Math.round(size * 0.5)}px`;
@@ -44,16 +40,6 @@
     const hue = [...u.nickname].reduce((a, c) => a + c.charCodeAt(0), 0) % 360;
     return `<span class="avatar letter" style="${style};background:hsl(${hue} 60% 55%)">${esc(u.nickname[0])}</span>`;
   }
-
-  // 겹쳐보기로 켜둔 친구 목록 (이 브라우저에 기억)
-  const overlayKey = () => 'studymate_overlay_' + S.me().id;
-  function getOverlay() {
-    let ids = [];
-    try { ids = JSON.parse(localStorage.getItem(overlayKey())) || []; } catch (e) { /* 무시 */ }
-    const following = new Set(S.following(S.me().id).map((u) => u.id));
-    return ids.filter((id) => following.has(id));
-  }
-  function setOverlay(ids) { try { localStorage.setItem(overlayKey(), JSON.stringify(ids)); } catch (e) { /* 무시 */ } }
 
   const ICON = {
     today: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
@@ -190,36 +176,13 @@
     </section>`;
   }
 
-  // ---------- 오늘 탭: 캘린더 + 친구 겹쳐보기 + 선택한 날 ----------
+  // ---------- 오늘 탭: 내 캘린더 + 선택한 날 ----------
   function renderToday() {
     const me = S.me();
-    const following = S.following(me.id);
-    const overlay = getOverlay();
-    const friends = overlay.map((id) => S.user(id));
-
-    const toggles = following.length
-      ? `<div class="overlay-row"><span class="label">함께 보기</span>
-          <span class="ov on me">${avatar(me, 20)}<span>나</span></span>
-          ${following.map((u) => `<button class="ov ${overlay.includes(u.id) ? 'on' : ''}" style="--c:${friendColor(u.id)}" data-action="overlay" data-id="${u.id}">${avatar(u, 20)}<span>${esc(u.nickname)}</span></button>`).join('')}
-        </div>`
-      : `<div class="overlay-row"><span class="label">친구를 팔로우하면 친구 일정을 내 캘린더에 겹쳐볼 수 있어요 →</span> <button class="btn sm ghost" data-action="tab" data-tab="friends">친구 찾기</button></div>`;
-
-    const sources = [{ userId: me.id }, ...friends.map((u) => ({ userId: u.id, color: friendColor(u.id), tag: shortTag(u) }))];
-    const cal = renderCalendar({ scope: 'today', month: st.calMonth, selDate: st.selDate, sources, top: toggles });
-
+    const cal = renderCalendar({ scope: 'today', month: st.calMonth, selDate: st.selDate, sources: [{ userId: me.id }] });
     const todos = S.todosOn(me.id, st.selDate);
     const done = todos.filter((t) => t.done).length;
     const isToday = st.selDate === S.today();
-    const friendBlocks = friends.map((u) => {
-      const list = S.todosOn(u.id, st.selDate).filter((t) => S.canSee(me.id, t)).sort(byTime);
-      if (!list.length) return '';
-      const cats = Object.fromEntries(S.categories(u.id).map((c) => [c.id, c]));
-      return `<section class="friend-day" style="--fc:${friendColor(u.id)}">
-        <header data-action="open-profile" data-id="${u.id}">${avatar(u, 28)}<b>${esc(u.nickname)}</b><span class="muted">${list.filter((t) => t.done).length}/${list.length}</span></header>
-        <ul class="todos">${list.map((t) => renderTodo(t, cats[t.categoryId], false, true)).join('')}</ul>
-      </section>`;
-    }).join('');
-
     return `${header('오늘')}
     <main class="page split">
       <div class="col-main">${cal}</div>
@@ -233,24 +196,33 @@
           <div class="big-num">${done} <span>/ ${todos.length} 완료</span></div>
           <div class="progress"><div style="width:${todos.length ? Math.round((done / todos.length) * 100) : 0}%"></div></div>
         </div>
-        ${S.categories(me.id).map((c) => renderCategory(c, todos.filter((t) => t.categoryId === c.id), { own: true })).join('')}
-        <button class="btn ghost full" data-action="open-cats">⚙︎ 카테고리 관리</button>
-        ${friendBlocks ? `<h3 class="section-title">함께 보는 친구 일정</h3>${friendBlocks}` : ''}
+        ${VIS_ORDER.map((v) => renderVisSection(v, todos.filter((t) => t.visibility === v), { own: true })).join('')}
+        <button class="btn ghost full" data-action="open-cats">🎨 카테고리(색) 관리</button>
       </div>
     </main>`;
   }
 
-  // 카테고리 카드 (내 화면 / 친구 프로필)
-  function renderCategory(c, todos, { own }) {
+  // 공개범위별 묶음: 내 화면은 3칸 모두, 친구 화면은 나에게 보이는 칸만
+  const VIS_ORDER = ['public', 'followers', 'private'];
+  const VIS_HINT = { public: '누구나 볼 수 있어요', followers: '나를 팔로우한 친구만 볼 수 있어요', private: '나만 볼 수 있어요' };
+  function renderVisSection(vis, todos, { own }) {
     if (!own && !todos.length) return '';
+    const ownerId = own ? S.me().id : todos[0].userId;
+    const cats = S.categories(ownerId);
+    const catMap = Object.fromEntries(cats.map((c) => [c.id, c]));
+    const pick = catMap[st.lastCat] ? st.lastCat : cats[0]?.id;
     const done = todos.filter((t) => t.done).length;
-    return `<section class="cat" style="--c:${c.color}">
-      <header class="cat-head">
-        <span class="cat-name">${esc(c.emoji)} ${esc(c.name)}</span>
+    return `<section class="vis-sec vis-${vis}">
+      <header class="vis-head">
+        <span class="vis-name">${S.VIS[vis].icon} ${S.VIS[vis].label}</span>
         ${todos.length ? `<span class="cat-count">${done}/${todos.length}</span>` : ''}
+        ${own ? `<span class="vis-hint">${VIS_HINT[vis]}</span>` : ''}
       </header>
-      <ul class="todos">${todos.map((t) => renderTodo(t, c, own)).join('')}</ul>
-      ${own ? `<form class="quick-add" data-form="quick-add" data-cat="${c.id}"><span class="plus">+</span><input name="title" placeholder="할 일 추가" maxlength="80" autocomplete="off"></form>` : ''}
+      <ul class="todos">${todos.sort(byTime).map((t) => renderTodo(t, catMap[t.categoryId], own, true)).join('')}</ul>
+      ${own ? `<form class="quick-add" data-form="quick-add" data-vis="${vis}">
+        <span class="plus">+</span><input name="title" placeholder="할 일 추가" maxlength="80" autocomplete="off">
+        <select name="cat" class="cat-pick" title="카테고리(색)">${cats.map((c) => `<option value="${c.id}" ${c.id === pick ? 'selected' : ''}>${esc(c.emoji)} ${esc(c.name)}</option>`).join('')}</select>
+      </form>` : ''}
     </section>`;
   }
 
@@ -282,7 +254,6 @@
           ${t.time ? `<span class="todo-time">${esc(t.time)}</span>` : ''}
           <span class="todo-title">${esc(t.title)}</span>
           ${showCat && cat ? `<span class="todo-cat">${esc(cat.emoji)} ${esc(cat.name)}</span>` : ''}
-          ${own ? `<span class="todo-meta" title="${S.VIS[t.visibility].label}">${S.VIS[t.visibility].icon}</span>` : ''}
         </div>
         ${reacts}
       </div>
@@ -422,7 +393,7 @@
           <div class="day-head"><h2>${fmtDay(date)}</h2></div>
           ${todos.length ? `<div class="card summary"><div class="label">할 일</div><div class="big-num">${done} <span>/ ${todos.length} 완료</span></div>
               <div class="progress"><div style="width:${Math.round((done / todos.length) * 100)}%"></div></div></div>
-            ${S.categories(u.id).map((c) => renderCategory(c, todos.filter((t) => t.categoryId === c.id).sort(byTime), { own: false })).join('')}`
+            ${VIS_ORDER.map((v) => renderVisSection(v, todos.filter((t) => t.visibility === v), { own: false })).join('')}`
             : '<div class="empty small-empty"><div class="empty-emoji">🫥</div><p>이 날 공개된 일정이 없어요</p></div>'}
           ${hiddenHint}
         </div>
@@ -606,11 +577,6 @@
       if (scope === 'profile') Object.assign(st.view, { date: t, month: monthOf(t) });
       else { st.selDate = t; st.calMonth = monthOf(t); }
     },
-    overlay({ id }) {
-      const ids = getOverlay();
-      setOverlay(ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]);
-    },
-
     'feed-mode'({ mode }) { st.feedMode = mode; },
     'week-move'({ dir }) { st.weekStart = S.addDays(st.weekStart, 7 * dir); },
     'week-today'() { st.weekStart = weekStartOf(S.today()); },
@@ -684,10 +650,11 @@
       return false;
     },
     'quick-add'(f) {
-      const catId = f.dataset.cat;
-      if (S.addTodo({ categoryId: catId, title: f.title.value, date: st.selDate })) {
+      const vis = f.dataset.vis;
+      st.lastCat = f.cat.value;
+      if (S.addTodo({ categoryId: f.cat.value, title: f.title.value, date: st.selDate, visibility: vis })) {
         render();
-        document.querySelector(`form[data-cat="${catId}"] input`)?.focus(); // 연속 입력
+        document.querySelector(`form[data-vis="${vis}"] input`)?.focus(); // 연속 입력
       }
       return false;
     },
