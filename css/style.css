@@ -406,3 +406,8 @@ button.react:active { transform: scale(.92); }
 }
 .custom-color span::after { content: ""; position: absolute; inset: 6px; border-radius: 50%; background: var(--pick, transparent); }
 .swatches .custom-color input[type=color] { display: block; position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; }
+
+/* 구글 로그인 버튼 */
+.or { width: 100%; max-width: 340px; display: flex; align-items: center; gap: 10px; color: var(--sub); font-size: 13px; margin: 6px 0; }
+.or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.btn.google { width: 100%; max-width: 340px; background: var(--card); border: 1.5px solid var(--line); gap: 10px; }

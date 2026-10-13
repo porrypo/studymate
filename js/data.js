@@ -41,7 +41,7 @@
     : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => { const r = (Math.random() * 16) | 0; return (c === 'x' ? r : (r & 3) | 8).toString(16); }));
 
   // ---------- DB 행 ↔ 앱 객체 변환 ----------
-  const fromProfile = (r) => ({ id: r.id, username: r.username, nickname: r.nickname, avatar: r.avatar, bio: r.bio, defaultVis: r.default_vis });
+  const fromProfile = (r) => ({ id: r.id, username: r.username, nickname: r.nickname, avatar: r.avatar, bio: r.bio, defaultVis: r.default_vis, needsSetup: r.needs_setup });
   const fromCat = (r) => ({ id: r.id, userId: r.user_id, name: r.name, emoji: r.emoji, color: r.color, order: r.sort });
   const fromTodo = (r) => ({ id: r.id, userId: r.user_id, categoryId: r.category_id, date: r.date, title: r.title, time: r.time, visibility: r.visibility, done: r.done, doneAt: r.done_at ? Date.parse(r.done_at) : null, order: r.sort, createdAt: Date.parse(r.created_at) });
   const fromReaction = (r) => ({ todoId: r.todo_id, userId: r.user_id, emoji: r.emoji, at: Date.parse(r.created_at) });
@@ -183,6 +183,27 @@
       if (error) throw new Error('아이디 또는 비밀번호가 맞지 않아요.');
       meId = data.user.id;
       await loadBase();
+    },
+
+    // 구글 로그인: 구글 화면으로 갔다가 이 사이트로 돌아옴
+    async loginWithGoogle() {
+      const { error } = await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + location.pathname } });
+      if (error) throw new Error('구글 로그인을 시작하지 못했어요. (' + error.message + ')');
+    },
+
+    // 소셜 로그인으로 처음 온 사람: 닉네임·아이디 정하기
+    async finishSetup({ username, nickname }) {
+      username = (username || '').trim().toLowerCase(); nickname = (nickname || '').trim();
+      if (!username || !nickname) throw new Error('모든 항목을 입력해주세요.');
+      if (!/^[a-z0-9_]{4,16}$/.test(username)) throw new Error('아이디는 영어 소문자·숫자·_ 로 4~16자예요.');
+      if (nickname.length > 12) throw new Error('닉네임은 12자까지예요.');
+      const { data: taken, error: e1 } = await sb.rpc('name_taken', { p_username: username, p_nickname: nickname });
+      if (e1) throw new Error('서버에 연결하지 못했어요. (' + e1.message + ')');
+      if (taken === 'username') throw new Error('이미 사용 중인 아이디예요.');
+      if (taken === 'nickname') throw new Error('이미 사용 중인 닉네임이에요.');
+      const { error } = await sb.from('profiles').update({ username, nickname, needs_setup: false }).eq('id', meId);
+      if (error) throw new Error('저장하지 못했어요. (' + error.message + ')');
+      Object.assign(users.get(meId), { username, nickname, needsSetup: false });
     },
 
     async logout() { await sb.auth.signOut(); clearAll(); },
