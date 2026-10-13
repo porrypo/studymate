@@ -6,7 +6,11 @@
 // =============================================================
 (function () {
   const cfg = window.STUDYMATE_CONFIG;
-  const sb = window.supabase.createClient(cfg.url, cfg.anonKey);
+  // 로그인 유지: 브라우저에 로그인 정보를 저장하고(persistSession), 만료 전에 자동으로 연장(autoRefreshToken).
+  // 직접 로그아웃하거나 브라우저 데이터를 지우기 전까지는 컴퓨터를 껐다 켜도 로그인이 유지돼요.
+  const sb = window.supabase.createClient(cfg.url, cfg.anonKey, {
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storage: window.localStorage },
+  });
   // 아이디로 로그인하기 위해 내부적으로만 쓰는 이메일 형식 (실제 메일은 안 보냄)
   const toEmail = (username) => `${username.trim().toLowerCase()}@studymate.local`;
 
@@ -119,9 +123,15 @@
       const { data } = await sb.auth.getSession();
       if (data.session) {
         meId = data.session.user.id;
-        try { await loadBase(); await S.prefetch([meId], today(), today()); }
-        catch (e) { console.error(e); alert('데이터를 불러오지 못했어요: ' + e.message); }
-        if (!users.has(meId)) { await sb.auth.signOut(); clearAll(); }
+        // 인터넷이 잠깐 끊겨도 로그아웃되지 않게: 몇 번 다시 시도
+        let loaded = false;
+        for (let i = 0, wait = 1000; i < 6 && !loaded; i++, wait *= 2) {
+          try { await loadBase(); loaded = true; }
+          catch (e) { console.error(e); await new Promise((r) => setTimeout(r, wait)); }
+        }
+        if (!loaded) alert('인터넷 연결이 불안정해서 불러오지 못했어요. 잠시 후 새로고침해 주세요. (로그인은 그대로 유지돼요)');
+        else if (!users.has(meId)) { await sb.auth.signOut(); clearAll(); } // 계정이 정말 없어졌을 때만 로그아웃
+        else await S.prefetch([meId], today(), today());
       }
       S.ready = true;
       // 30초마다 + 창으로 돌아올 때마다 친구들 새 소식 불러오기
