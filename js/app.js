@@ -32,10 +32,6 @@
   const timeAgo = (ts) => { const s = (Date.now() - ts) / 1000; if (s < 60) return '방금'; if (s < 3600) return `${Math.floor(s / 60)}분 전`; if (s < 86400) return `${Math.floor(s / 3600)}시간 전`; return `${Math.floor(s / 86400)}일 전`; };
   const byTime = (a, b) => (a.time || '99').localeCompare(b.time || '99') || a.order - b.order;
 
-  // 친구마다 고정 색 (캘린더 겹쳐보기용)
-  function friendColor(id) { let h = 0; for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0; return S.COLORS[h % 10]; }
-  const shortTag = (u) => (u.avatar && !u.avatar.startsWith('data:') ? u.avatar : u.nickname[0]);
-
   function avatar(u, size = 40) {
     if (!u) return '';
     const style = `width:${size}px;height:${size}px;font-size:${Math.round(size * 0.5)}px`;
@@ -45,15 +41,22 @@
     return `<span class="avatar letter" style="${style};background:hsl(${hue} 60% 55%)">${esc(u.nickname[0])}</span>`;
   }
 
-  // 겹쳐보기로 켜둔 친구 목록 (이 브라우저에 기억)
-  const overlayKey = () => 'studymate_overlay_' + S.me().id;
-  function getOverlay() {
-    let ids = [];
-    try { ids = JSON.parse(localStorage.getItem(overlayKey())) || []; } catch (e) { /* 무시 */ }
-    const following = new Set(S.following(S.me().id).map((u) => u.id));
-    return ids.filter((id) => following.has(id));
+  // ---------- 테마 (색·화면 모드, 이 브라우저에 저장) ----------
+  const THEMES = [['라벤더', '#5E5CE6'], ['블루', '#007AFF'], ['민트', '#30B0C7'], ['그린', '#34C759'], ['옐로', '#F5B400'],
+    ['오렌지', '#FF9500'], ['코랄', '#FF6B6B'], ['핑크', '#FF2D55'], ['퍼플', '#AF52DE'], ['그레이', '#8E8E93']];
+  const DEFAULT_THEME = THEMES[0][1];
+  function loadTheme() { try { return JSON.parse(localStorage.getItem('studymate_theme')) || {}; } catch (e) { return {}; } }
+  function applyTheme(t = loadTheme()) {
+    const root = document.documentElement;
+    root.style.setProperty('--theme', t.color || DEFAULT_THEME);
+    if (t.mode === 'light' || t.mode === 'dark') root.dataset.mode = t.mode; else delete root.dataset.mode;
   }
-  function setOverlay(ids) { try { localStorage.setItem(overlayKey(), JSON.stringify(ids)); } catch (e) { /* 무시 */ } }
+  function saveTheme(patch) {
+    const t = { ...loadTheme(), ...patch };
+    try { localStorage.setItem('studymate_theme', JSON.stringify(t)); } catch (e) { /* 저장 못 해도 이번엔 적용 */ }
+    applyTheme(t);
+  }
+  applyTheme();
 
   const ICON = {
     today: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
@@ -190,36 +193,14 @@
     </section>`;
   }
 
-  // ---------- 오늘 탭: 캘린더 + 친구 겹쳐보기 + 선택한 날 ----------
+  // ---------- 오늘 탭: 내 캘린더 + 선택한 날 (친구 일정은 친구 페이지에서) ----------
   function renderToday() {
     const me = S.me();
-    const following = S.following(me.id);
-    const overlay = getOverlay();
-    const friends = overlay.map((id) => S.user(id));
-
-    const toggles = following.length
-      ? `<div class="overlay-row"><span class="label">함께 보기</span>
-          <span class="ov on me">${avatar(me, 20)}<span>나</span></span>
-          ${following.map((u) => `<button class="ov ${overlay.includes(u.id) ? 'on' : ''}" style="--c:${friendColor(u.id)}" data-action="overlay" data-id="${u.id}">${avatar(u, 20)}<span>${esc(u.nickname)}</span></button>`).join('')}
-        </div>`
-      : `<div class="overlay-row"><span class="label">친구를 팔로우하면 친구 일정을 내 캘린더에 겹쳐볼 수 있어요 →</span> <button class="btn sm ghost" data-action="tab" data-tab="friends">친구 찾기</button></div>`;
-
-    const sources = [{ userId: me.id }, ...friends.map((u) => ({ userId: u.id, color: friendColor(u.id), tag: shortTag(u) }))];
-    const cal = renderCalendar({ scope: 'today', month: st.calMonth, selDate: st.selDate, sources, top: toggles });
+    const cal = renderCalendar({ scope: 'today', month: st.calMonth, selDate: st.selDate, sources: [{ userId: me.id }] });
 
     const todos = S.todosOn(me.id, st.selDate);
     const done = todos.filter((t) => t.done).length;
     const isToday = st.selDate === S.today();
-    const friendBlocks = friends.map((u) => {
-      const list = S.todosOn(u.id, st.selDate).filter((t) => S.canSee(me.id, t)).sort(byTime);
-      if (!list.length) return '';
-      const cats = Object.fromEntries(S.categories(u.id).map((c) => [c.id, c]));
-      return `<section class="friend-day" style="--fc:${friendColor(u.id)}">
-        <header data-action="open-profile" data-id="${u.id}">${avatar(u, 28)}<b>${esc(u.nickname)}</b><span class="muted">${list.filter((t) => t.done).length}/${list.length}</span></header>
-        <ul class="todos">${list.map((t) => renderTodo(t, cats[t.categoryId], false, true)).join('')}</ul>
-      </section>`;
-    }).join('');
-
     return `${header('오늘')}
     <main class="page split">
       <div class="col-main">${cal}</div>
@@ -235,7 +216,6 @@
         </div>
         ${S.categories(me.id).map((c) => renderCategory(c, todos.filter((t) => t.categoryId === c.id), { own: true })).join('')}
         <button class="btn ghost full" data-action="open-cats">⚙︎ 카테고리 관리</button>
-        ${friendBlocks ? `<h3 class="section-title">함께 보는 친구 일정</h3>${friendBlocks}` : ''}
       </div>
     </main>`;
   }
@@ -494,6 +474,7 @@
 
       <h3 class="section-title">설정</h3>
       <div class="card settings">
+        ${renderThemeSettings()}
         <label class="set-row"><span>새 할 일 기본 공개범위</span>
           <select data-change="default-vis">${Object.entries(S.VIS).map(([k, v]) => `<option value="${k}" ${me.defaultVis === k ? 'selected' : ''}>${v.icon} ${v.label}</option>`).join('')}</select></label>
         <button class="set-row" data-action="open-cats"><span>카테고리 관리</span><span class="chev">›</span></button>
@@ -501,6 +482,23 @@
       </div>
       <p class="muted center small">스터디메이트 v0.3 · @${esc(me.username)}</p>
     </main>`;
+  }
+
+  function renderThemeSettings() {
+    const t = loadTheme();
+    const cur = t.color || DEFAULT_THEME;
+    const isPreset = THEMES.some(([, c]) => c === cur);
+    return `<div class="theme-row"><span>🎨 테마 색</span>
+        <div class="theme-swatches">
+          ${THEMES.map(([name, c]) => `<button class="${c === cur ? 'on' : ''}" style="background:${c}" title="${name}" aria-label="${name}" data-action="theme" data-color="${c}"></button>`).join('')}
+          <label class="${isPreset ? '' : 'on'}" title="직접 고르기"><input type="color" value="${cur}" data-change="theme-color" aria-label="색 직접 고르기"></label>
+        </div>
+        <div class="theme-preview"><div class="progress"><div style="width:65%"></div></div><span>미리보기</span></div>
+      </div>
+      <label class="set-row"><span>🌗 화면 모드</span>
+        <select data-change="theme-mode">
+          ${[['auto', '자동 (맥 설정 따라)'], ['light', '밝게'], ['dark', '어둡게']].map(([v, l]) => `<option value="${v}" ${(t.mode || 'auto') === v ? 'selected' : ''}>${l}</option>`).join('')}
+        </select></label>`;
   }
 
   // ---------- 팝업(모달) ----------
@@ -606,11 +604,7 @@
       if (scope === 'profile') Object.assign(st.view, { date: t, month: monthOf(t) });
       else { st.selDate = t; st.calMonth = monthOf(t); }
     },
-    overlay({ id }) {
-      const ids = getOverlay();
-      setOverlay(ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]);
-    },
-
+    theme({ color }) { saveTheme({ color }); },
     'feed-mode'({ mode }) { st.feedMode = mode; },
     'week-move'({ dir }) { st.weekStart = S.addDays(st.weekStart, 7 * dir); },
     'week-today'() { st.weekStart = weekStartOf(S.today()); },
@@ -734,6 +728,8 @@
       wrap.querySelector('input[type=radio]').checked = true;
       wrap.querySelector('span').style.setProperty('--pick', e.target.value);
     }
+    if (k === 'theme-color') { saveTheme({ color: e.target.value }); render(); }
+    if (k === 'theme-mode') { saveTheme({ mode: e.target.value }); }
     if (k === 'default-vis') { S.updateProfile({ defaultVis: e.target.value }); }
     if (k === 'avatar-file' && e.target.files[0]) {
       try { st.modal.avatar = await resizeImage(e.target.files[0]); render(); }

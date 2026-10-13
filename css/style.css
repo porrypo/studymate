@@ -6,15 +6,17 @@
   --text: #1C1C1E;
   --sub: #8E8E93;
   --line: #E5E5EA;
-  --accent: #FF3B30;      /* 메인 포인트 색 */
+  --accent: #FF3B30;      /* 빨강: 일요일·삭제·에러 표시용 */
+  --theme: #5E5CE6;       /* 테마 색: 진행 바·그래프·오늘 표시 (MY → 테마에서 바꿈) */
   --primary: #1C1C1E;
   --on-primary: #FFFFFF;
   --chip-mix: 18%;
   --radius: 16px;
   color-scheme: light;
 }
+/* 화면 모드: 자동이면 맥 설정을 따르고, MY에서 밝게/어둡게를 고르면 그걸 따름 */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-mode="light"]) {
     --bg: #000000;
     --card: #1C1C1E;
     --side: #111113;
@@ -26,6 +28,18 @@
     --chip-mix: 30%;
     color-scheme: dark;
   }
+}
+:root[data-mode="dark"] {
+    --bg: #000000;
+    --card: #1C1C1E;
+    --side: #111113;
+    --text: #F2F2F7;
+    --sub: #8E8E93;
+    --line: #2C2C2E;
+    --primary: #F2F2F7;
+    --on-primary: #1C1C1E;
+    --chip-mix: 30%;
+    color-scheme: dark;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -98,7 +112,7 @@ input, select { font: inherit; color: inherit; }
 .btn.big { height: 50px; font-size: 16px; }
 .btn.full { width: 100%; margin-top: 4px; }
 .link { color: var(--sub); text-decoration: underline; font-size: 14px; }
-.pill { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--accent); color: #fff; }
+.pill { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--theme); color: #fff; }
 
 /* ============ 로그인 ============ */
 .auth { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 24px; gap: 10px; }
@@ -131,7 +145,7 @@ input, select { font: inherit; color: inherit; }
 .cal-cell .num { align-self: center; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 600; flex: none; }
 .cal-cell.sun .num { color: var(--accent); }
 .cal-cell.out { opacity: .35; }
-.cal-cell.today .num { background: var(--accent); color: #fff; }
+.cal-cell.today .num { background: var(--theme); color: #fff; }
 .cal-cell.sel { background: color-mix(in srgb, var(--line) 70%, transparent); border-radius: 8px; }
 .cal-cell.sel:not(.today) .num { background: var(--text); color: var(--card); }
 .chip {
@@ -165,7 +179,7 @@ input, select { font: inherit; color: inherit; }
 .big-num { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
 .big-num span { font-size: 15px; color: var(--sub); font-weight: 600; }
 .progress { height: 8px; background: var(--line); border-radius: 4px; margin-top: 10px; overflow: hidden; }
-.progress div { height: 100%; background: var(--accent); border-radius: 4px; transition: width .3s; }
+.progress div { height: 100%; background: var(--theme); border-radius: 4px; transition: width .3s; }
 
 /* ============ 카테고리 / 할 일 ============ */
 .cat { background: var(--card); border-radius: var(--radius); padding: 12px 14px 8px; margin-bottom: 12px; }
@@ -209,7 +223,7 @@ input, select { font: inherit; color: inherit; }
 .react b { font-size: 12px; }
 button.react:hover { transform: scale(1.08); }
 button.react:active { transform: scale(.92); }
-.react.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.react.on { border-color: var(--theme); background: color-mix(in srgb, var(--theme) 12%, transparent); }
 .reacts.readonly .react { height: 22px; font-size: 12px; padding: 0 6px; }
 
 /* ============ 피드 ============ */
@@ -226,7 +240,7 @@ button.react:active { transform: scale(.92); }
 .wk-day { text-align: center; padding: 10px 4px 8px; font-size: 12px; color: var(--sub); font-weight: 600; border-bottom: 1px solid var(--line); }
 .wk-day b { font-size: 15px; color: var(--text); margin-left: 2px; }
 .wk-day.sun, .wk-day.sun b { color: var(--accent); }
-.wk-day.today b { background: var(--accent); color: #fff; border-radius: 999px; padding: 1px 7px; }
+.wk-day.today b { background: var(--theme); color: #fff; border-radius: 999px; padding: 1px 7px; }
 .wk-corner { border-bottom: 1px solid var(--line); }
 .wk-name {
   position: sticky; left: 0; z-index: 1; background: var(--card);
@@ -237,7 +251,7 @@ button.react:active { transform: scale(.92); }
 .wk-name[data-action] { cursor: pointer; }
 .wk-name[data-action]:hover span { text-decoration: underline; }
 .wk-cell { padding: 6px 4px; border-bottom: 1px solid var(--line); border-left: 1px solid var(--line); display: flex; flex-direction: column; gap: 3px; min-height: 72px; }
-.wk-cell.today { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+.wk-cell.today { background: color-mix(in srgb, var(--theme) 6%, transparent); }
 .wk-item {
   font-size: 12px; line-height: 1.35; padding: 3px 6px; border-radius: 5px;
   background: color-mix(in srgb, var(--c) var(--chip-mix), transparent); border-left: 3px solid var(--c);
@@ -251,7 +265,7 @@ button.react:active { transform: scale(.92); }
 .feed-head { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; cursor: pointer; }
 .ring {
   --p: 0; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; flex: none;
-  background: conic-gradient(var(--accent) calc(var(--p) * 1%), var(--line) 0);
+  background: conic-gradient(var(--theme) calc(var(--p) * 1%), var(--line) 0);
 }
 .ring span { width: 36px; height: 36px; border-radius: 50%; background: var(--card); display: grid; place-items: center; font-size: 11px; font-weight: 800; }
 
@@ -271,7 +285,7 @@ button.react:active { transform: scale(.92); }
 .user-row, .notif { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
 .user-row:last-child, .notif:last-child { border-bottom: 0; }
 .user-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; cursor: pointer; }
-.notif.unread { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.notif.unread { background: color-mix(in srgb, var(--theme) 8%, transparent); }
 .notif .user-main .grow > div:first-child { font-size: 14px; }
 
 /* ============ 프로필 / MY ============ */
@@ -282,7 +296,7 @@ button.react:active { transform: scale(.92); }
 .stat-grid .card { margin: 0; }
 .bars { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; height: 140px; margin-top: 10px; }
 .bar-col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; }
-.bar { width: 100%; max-width: 28px; border-radius: 6px 6px 3px 3px; background: var(--accent); }
+.bar { width: 100%; max-width: 28px; border-radius: 6px 6px 3px 3px; background: var(--theme); }
 .bar-val { font-size: 11px; color: var(--sub); font-weight: 600; }
 .bar-label { font-size: 12px; color: var(--sub); }
 .bar-label.on { color: var(--text); font-weight: 800; }
@@ -392,7 +406,7 @@ button.react:active { transform: scale(.92); }
 .react-picker button span { font-size: 24px; line-height: 1; transition: transform .1s; }
 .react-picker button:hover span { transform: scale(1.25); }
 .react-picker button small { font-size: 10px; color: var(--sub); white-space: nowrap; }
-.react-picker button.on { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.react-picker button.on { background: color-mix(in srgb, var(--theme) 14%, transparent); }
 @keyframes pop { from { transform: translateY(4px) scale(.9); opacity: 0; } }
 
 /* 캘린더 칸이 좁을 땐 시간 대신 제목을 보여주기 */
@@ -411,3 +425,17 @@ button.react:active { transform: scale(.92); }
 .or { width: 100%; max-width: 340px; display: flex; align-items: center; gap: 10px; color: var(--sub); font-size: 13px; margin: 6px 0; }
 .or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 .btn.google { width: 100%; max-width: 340px; background: var(--card); border: 1.5px solid var(--line); gap: 10px; }
+
+/* ============ 테마 고르기 (MY → 설정) ============ */
+.theme-row { display: block; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.theme-row > span { display: block; margin-bottom: 10px; }
+.theme-swatches { display: flex; flex-wrap: wrap; gap: 10px; }
+.theme-swatches button, .theme-swatches label {
+  position: relative; width: 34px; height: 34px; border-radius: 50%; cursor: pointer;
+  border: 3px solid var(--card); box-shadow: 0 0 0 1.5px var(--line);
+}
+.theme-swatches .on { box-shadow: 0 0 0 2.5px var(--text); }
+.theme-swatches label { background: conic-gradient(#FF3B30, #FFCC00, #34C759, #30B0C7, #007AFF, #AF52DE, #FF2D55, #FF3B30); }
+.theme-swatches label input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; }
+.theme-preview { display: flex; align-items: center; gap: 10px; margin-top: 12px; font-size: 13px; color: var(--sub); }
+.theme-preview .progress { flex: 1; margin: 0; }
