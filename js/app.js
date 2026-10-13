@@ -17,7 +17,7 @@
     calMonth: S.today().slice(0, 7),
     feedMode: 'week',        // today | week
     weekStart: weekStartOf(S.today()),
-    friendsTab: 'following', // following | followers | recommend
+    friendsTab: 'following', // following | followers
     q: '',
     modal: null,
     picker: null,            // 이모티콘 목록이 열린 할 일 id
@@ -345,10 +345,10 @@
   // ---------- 친구 ----------
   function renderFriends() {
     const me = S.me();
-    const tabs = [['following', `팔로잉 ${S.following(me.id).length}`], ['followers', `팔로워 ${S.followers(me.id).length}`], ['recommend', '추천']];
+    const tabs = [['following', `팔로잉 ${S.following(me.id).length}`], ['followers', `팔로워 ${S.followers(me.id).length}`]];
     return `${header('친구')}<main class="page narrow">
       <div class="search"><span>🔍</span><input id="search-input" placeholder="닉네임 또는 아이디 검색" value="${esc(st.q)}" autocomplete="off"></div>
-      <div class="segment">${tabs.map(([k, l]) => `<button class="${st.friendsTab === k ? 'on' : ''}" data-action="friends-tab" data-tab="${k}">${l}</button>`).join('')}</div>
+      <div class="segment two">${tabs.map(([k, l]) => `<button class="${st.friendsTab === k ? 'on' : ''}" data-action="friends-tab" data-tab="${k}">${l}</button>`).join('')}</div>
       <div id="friend-list">${renderFriendList()}</div>
     </main>`;
   }
@@ -360,9 +360,8 @@
       const found = S.searchUsers(st.q);
       if (!found.length) return '<p class="muted center">검색 결과가 없어요</p>';
       rows = found.map((u) => ({ u, sub: u.bio }));
-    } else if (st.friendsTab === 'recommend') rows = S.recommend().map(({ user, reason }) => ({ u: user, sub: reason }));
-    else rows = (st.friendsTab === 'following' ? S.following(me.id) : S.followers(me.id)).map((u) => ({ u, sub: u.bio }));
-    if (!rows.length) return `<p class="muted center">${st.friendsTab === 'following' ? '아직 팔로우한 친구가 없어요. 추천 탭을 확인해보세요!' : '아직 팔로워가 없어요.'}</p>`;
+    } else rows = (st.friendsTab === 'following' ? S.following(me.id) : S.followers(me.id)).map((u) => ({ u, sub: u.bio }));
+    if (!rows.length) return `<p class="muted center">${st.friendsTab === 'following' ? '아직 팔로우한 친구가 없어요. 위 검색창에 친구 닉네임이나 아이디를 검색해 보세요!' : '아직 팔로워가 없어요.'}</p>`;
     return `<ul class="user-list">${rows.map(({ u, sub }) => userRow(u, sub)).join('')}</ul>`;
   }
 

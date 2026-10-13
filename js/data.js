@@ -333,14 +333,6 @@
       q = q.trim().toLowerCase(); if (!q) return [];
       return [...users.values()].filter((u) => u.id !== meId && (u.nickname.toLowerCase().includes(q) || u.username.includes(q)));
     },
-    recommend() {
-      const result = []; const seen = new Set([meId]);
-      S.following(meId).forEach((u) => seen.add(u.id));
-      S.followers(meId).forEach((u) => { if (!seen.has(u.id)) { seen.add(u.id); result.push({ user: u, reason: '나를 팔로우해요' }); } });
-      S.following(meId).forEach((f) => S.following(f.id).forEach((u) => { if (!seen.has(u.id)) { seen.add(u.id); result.push({ user: u, reason: `${f.nickname}님이 팔로우해요` }); } }));
-      users.forEach((u) => { if (!seen.has(u.id)) { seen.add(u.id); result.push({ user: u, reason: '새로운 친구' }); } });
-      return result.slice(0, 15);
-    },
 
     // ---------- 공감 이모티콘 ----------
     reactionSummary(todoId) {
