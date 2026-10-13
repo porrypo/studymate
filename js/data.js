@@ -435,6 +435,29 @@
       gMembers = gMembers.filter((m) => m.groupId !== gid);
       gBusy = new Map([...gBusy].filter(([, b]) => b.groupId !== gid));
     },
+    isGroupOwner(gid) { return groups.get(gid)?.createdBy === meId; },
+    // 방장: 내보내기 (서버에서 코드도 자동으로 바뀜)
+    async kickMember(gid, userId) {
+      const { error } = await sb.rpc('kick_member', { p_group: gid, p_user: userId });
+      if (error) throw new Error(error.message);
+      gBusy = new Map([...gBusy].filter(([, b]) => !(b.groupId === gid && b.userId === userId)));
+      await loadGroups();
+    },
+    // 방장: 코드 바꾸기
+    async newGroupCode(gid) {
+      const { data, error } = await sb.rpc('regenerate_group_code', { p_group: gid });
+      if (error) throw new Error(error.message);
+      groups.get(gid).code = data;
+      return data;
+    },
+    // 방장: 그룹 삭제 (멤버·일정 모두 지워짐)
+    async deleteGroup(gid) {
+      const { error } = await sb.from('groups').delete().eq('id', gid).eq('created_by', meId);
+      if (error) throw new Error(error.message);
+      groups.delete(gid);
+      gMembers = gMembers.filter((m) => m.groupId !== gid);
+      gBusy = new Map([...gBusy].filter(([, b]) => b.groupId !== gid));
+    },
     setGroupColor(gid, color) {
       color = safeColor(color);
       const m = gMembers.find((x) => x.groupId === gid && x.userId === meId);

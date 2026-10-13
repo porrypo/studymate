@@ -453,7 +453,10 @@ button.react:active { transform: scale(.92); }
 .g-head { display: flex; flex-direction: column; gap: 12px; }
 .g-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .g-title h2 { margin: 0; font-size: 22px; }
-.g-code { margin-left: auto; padding: 6px 12px; border-radius: 10px; background: var(--bg); font-size: 13px; color: var(--sub); }
+.g-code-box { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.g-code { padding: 6px 12px; border-radius: 10px; background: var(--bg); font-size: 13px; color: var(--sub); }
+.g-kick { margin-left: 2px; width: 18px; height: 18px; border-radius: 50%; font-size: 10px; color: var(--sub); background: var(--card); line-height: 18px; }
+.g-kick:hover { color: #fff; background: var(--accent); }
 .g-code b { color: var(--text); letter-spacing: 2px; font-size: 15px; }
 .g-members { display: flex; flex-wrap: wrap; gap: 6px; }
 .g-member { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 600;

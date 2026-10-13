@@ -27,6 +27,7 @@
     gMonth: S.today().slice(0, 7),
     gDate: S.today(),
     groupForm: null,         // 'create' | 'join' | null
+    showCode: null,          // 초대 코드를 보여주는 그룹 id (평소엔 숨김)
   };
 
   // ---------- 작은 도우미 ----------
@@ -550,6 +551,7 @@
     }
 
     const me = S.me();
+    const isOwner = S.isGroupOwner(g.id);
     const members = S.groupMembers(g.id);
     const colorOf = Object.fromEntries(members.map((m) => [m.userId, m.color]));
     const myColor = colorOf[me.id] || GROUP_COLORS[0];
@@ -558,8 +560,14 @@
     return `${header('그룹')}<main class="page">${chips}${form}
       <section class="card g-head">
         <div class="g-title"><h2>${esc(g.name)}</h2>
-          <button class="g-code" data-action="g-copy" title="눌러서 복사">코드 <b>${esc(g.code)}</b> 📋</button></div>
-        <div class="g-members">${members.map((m) => `<span class="g-member" style="--c:${m.color}"><i></i>${esc(m.user.nickname)}${m.userId === me.id ? ' (나)' : ''}</span>`).join('')}</div>
+          <div class="g-code-box">
+            ${st.showCode === g.id
+              ? `<button class="g-code" data-action="g-copy" title="눌러서 복사">초대 코드 <b>${esc(g.code)}</b> 📋</button>
+                 <button class="link small" data-action="g-code-hide">숨기기</button>`
+              : '<button class="g-code" data-action="g-code-show">🔒 초대 코드 보기</button>'}
+            ${isOwner ? '<button class="link small" data-action="g-code-new">코드 바꾸기</button>' : ''}
+          </div></div>
+        <div class="g-members">${members.map((m) => `<span class="g-member" style="--c:${m.color}"><i></i>${m.userId === g.createdBy ? '👑 ' : ''}${esc(m.user.nickname)}${m.userId === me.id ? ' (나)' : ''}${isOwner && m.userId !== me.id ? `<button class="g-kick" data-action="g-kick" data-id="${m.userId}" title="내보내기" aria-label="${esc(m.user.nickname)} 내보내기">✕</button>` : ''}</span>`).join('')}</div>
         <div class="g-mycolor"><span class="label">내 색</span>
           ${GROUP_COLORS.map((c) => `<button class="${c === myColor ? 'on' : ''}" style="background:${c}" data-action="g-color" data-color="${c}" aria-label="색 ${c}"></button>`).join('')}
           <label class="${GROUP_COLORS.includes(myColor) ? '' : 'on'}" title="직접 고르기"><input type="color" value="${myColor}" data-change="g-color" aria-label="색 직접 고르기"></label>
@@ -584,7 +592,7 @@
             </form>
             <p class="hint">내가 적은 것만 지울 수 있어요. 개인 할 일과는 따로예요.</p>
           </section>
-          <button class="btn ghost full g-leave" data-action="g-leave">그룹 나가기</button>
+          <button class="btn ghost full g-leave" data-action="g-leave">${isOwner ? '그룹 삭제하기' : '그룹 나가기'}</button>
         </div>
       </div>
     </main>`;
@@ -735,7 +743,20 @@
     'feed-mode'({ mode }) { st.feedMode = mode; },
 
     // 그룹
-    'g-select'({ id }) { st.groupId = id; st.groupForm = null; },
+    'g-select'({ id }) { st.groupId = id; st.groupForm = null; st.showCode = null; },
+    'g-code-show'() { st.showCode = st.groupId; },
+    'g-code-hide'() { st.showCode = null; },
+    'g-code-new'() {
+      if (!confirm('초대 코드를 새로 바꿀까요? 지금 코드로는 더 이상 들어올 수 없어요. (이미 들어온 사람은 그대로예요)')) return false;
+      S.newGroupCode(st.groupId).then(() => { st.showCode = st.groupId; render(); }, (e) => alert(e.message));
+      return false;
+    },
+    'g-kick'({ id }) {
+      const u = S.user(id);
+      if (!confirm(`${u ? u.nickname : '이 사람'}님을 그룹에서 내보낼까요?\n그 사람이 적은 일정도 지워지고, 초대 코드도 새로 바뀌어요.`)) return false;
+      S.kickMember(st.groupId, id).then(() => render(), (e) => alert('내보내지 못했어요: ' + e.message));
+      return false;
+    },
     'g-form'({ form }) { st.groupForm = form || null; },
     'g-date'({ date }) { st.gDate = date; if (date.slice(0, 7) !== st.gMonth) st.gMonth = date.slice(0, 7); },
     'g-month'({ dir }) { st.gMonth = shiftMonth(st.gMonth, +dir); },
@@ -749,6 +770,11 @@
     },
     'g-leave'() {
       const g = S.group(st.groupId); if (!g) return false;
+      if (S.isGroupOwner(g.id)) {
+        if (!confirm(`'${g.name}' 그룹을 삭제할까요?\n모든 멤버와 일정이 지워지고 되돌릴 수 없어요.`)) return false;
+        S.deleteGroup(g.id).then(() => { st.groupId = null; render(); }, (e) => alert('삭제하지 못했어요: ' + e.message));
+        return false;
+      }
       if (!confirm(`'${g.name}' 그룹에서 나갈까요? 내가 적은 일정도 같이 지워져요.`)) return false;
       S.leaveGroup(g.id).then(() => { st.groupId = null; render(); }, (e) => alert('나가지 못했어요: ' + e.message));
       return false;
