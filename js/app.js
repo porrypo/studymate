@@ -512,7 +512,7 @@
 
   // =============================================================
   //  그룹 (약속 잡기) — 개인 할 일과 완전히 별개
-  //  각자 "안 되는 날"을 적고, 아무도 안 적은 날 = 다 같이 만날 수 있는 날
+  //  그룹 멤버끼리 개인 일정을 공유하는 방. 달력에 비어 있는 날 = 다 같이 만날 수 있는 날
   // =============================================================
   const GROUP_COLORS = ['#FF6B6B', '#4D96FF', '#6BCB77', '#FFB400', '#B983FF', '#FF8FB1', '#2EC4B6', '#FF9F45', '#8D99AE', '#A0522D'];
 
@@ -544,7 +544,7 @@
     if (!g) {
       return `${header('그룹')}<main class="page">${chips}${form || `<div class="empty">
         <div class="empty-emoji">🤝</div>
-        <p>친구들과 약속 잡는 곳이에요.<br>각자 <b>안 되는 날</b>을 적으면, <b>다 같이 되는 날</b>이 보여요.</p>
+        <p>친구들과 일정을 공유하는 방이에요.<br>각자 일정을 달력에 적으면, <b>비어 있는 날</b>에 만나면 돼요.</p>
         <button class="btn primary" data-action="g-form" data-form="create">+ 그룹 만들기</button>
         <button class="btn ghost" data-action="g-form" data-form="join">🔑 코드로 참여</button></div>`}</main>`;
     }
@@ -573,18 +573,17 @@
             ${busyToday.length
               ? `<ul class="busy-list">${busyToday.map((b) => {
                   const u = S.user(b.userId);
-                  return `<li style="--c:${colorOf[b.userId] || '#8E8E93'}"><i></i><b>${esc(u ? u.nickname : '?')}</b><span>${esc(b.label || '안 돼요')}</span>
+                  return `<li style="--c:${colorOf[b.userId] || '#8E8E93'}"><i></i><b>${esc(u ? u.nickname : '?')}</b><span>${esc(b.label)}</span>
                     ${b.userId === me.id ? `<button class="icon-btn sm" data-action="g-busy-del" data-id="${b.id}" aria-label="지우기">✕</button>` : ''}</li>`;
                 }).join('')}</ul>`
-              : '<p class="g-allfree">🎉 이 날은 <b>다 같이 돼요!</b></p>'}
+              : '<p class="muted g-empty">아직 적힌 일정이 없어요</p>'}
             <form class="g-add" data-form="g-busy">
               <span class="dot" style="background:${myColor}"></span>
-              <input name="label" placeholder="이 날 안 되는 이유 (예: 알바)" maxlength="20" autocomplete="off">
-              <button class="btn sm primary">안 돼요</button>
+              <input name="label" placeholder="일정 적기 (예: 알바 10~18시, 7시부터 가능)" maxlength="40" autocomplete="off" required>
+              <button class="btn sm primary">추가</button>
             </form>
             <p class="hint">내가 적은 것만 지울 수 있어요. 개인 할 일과는 따로예요.</p>
           </section>
-          ${renderFreeDays(g)}
           <button class="btn ghost full g-leave" data-action="g-leave">그룹 나가기</button>
         </div>
       </div>
@@ -607,13 +606,12 @@
       const d = S.parseDate(date);
       const list = (byDate[date] || []).sort((a, b) => a.createdAt - b.createdAt);
       const inMonth = d.getMonth() + 1 === m;
-      const free = inMonth && date >= t0 && !list.length;
       const chips = list.slice(0, 4).map((b) => {
         const u = S.user(b.userId);
-        return `<div class="chip" style="--c:${colorOf[b.userId] || '#8E8E93'}"><i>${esc(u ? u.nickname : '?')}</i> ${esc(b.label || '안 돼요')}</div>`;
+        return `<div class="chip" style="--c:${colorOf[b.userId] || '#8E8E93'}"><i>${esc(u ? u.nickname : '?')}</i> ${esc(b.label)}</div>`;
       }).join('');
-      cells += `<button class="cal-cell ${inMonth ? '' : 'out'} ${date === st.gDate ? 'sel' : ''} ${date === t0 ? 'today' : ''} ${d.getDay() === 0 ? 'sun' : ''} ${free ? 'free' : ''} ${date < t0 ? 'past' : ''}" data-action="g-date" data-date="${date}">
-        <span class="num">${d.getDate()}</span>${chips}${list.length > 4 ? `<div class="more">+${list.length - 4}명</div>` : ''}${free ? '<div class="free-mark">✓ 다 돼요</div>' : ''}
+      cells += `<button class="cal-cell ${inMonth ? '' : 'out'} ${date === st.gDate ? 'sel' : ''} ${date === t0 ? 'today' : ''} ${d.getDay() === 0 ? 'sun' : ''} ${date < t0 ? 'past' : ''}" data-action="g-date" data-date="${date}">
+        <span class="num">${d.getDate()}</span>${chips}${list.length > 4 ? `<div class="more">+${list.length - 4}개</div>` : ''}
       </button>`;
     }
     return `<section class="card calendar g-cal">
@@ -628,24 +626,6 @@
       <div class="cal-week">${WEEK.map((w) => `<span>${w}</span>`).join('')}</div>
       <div class="cal-grid">${cells}</div>
     </section>`;
-  }
-
-  // 이번 달 중 오늘 이후, 아무도 안 된다고 안 한 날
-  function renderFreeDays(g) {
-    const [y, m] = st.gMonth.split('-').map(Number);
-    const t0 = S.today();
-    const last = new Date(y, m, 0).getDate();
-    const busy = new Set(S.busyBetween(g.id, `${st.gMonth}-01`, `${st.gMonth}-${String(last).padStart(2, '0')}`).map((b) => b.date));
-    const days = [];
-    for (let d = 1; d <= last; d++) {
-      const date = `${st.gMonth}-${String(d).padStart(2, '0')}`;
-      if (date >= t0 && !busy.has(date)) days.push(date);
-    }
-    return `<section class="card"><div class="label">🎉 ${m}월에 다 같이 되는 날 (${days.length}일)</div>
-      <div class="free-days">${days.length ? days.map((date) => {
-        const d = S.parseDate(date);
-        return `<button class="free-day ${date === st.gDate ? 'on' : ''}" data-action="g-date" data-date="${date}">${d.getDate()}일 (${WEEK[d.getDay()]})</button>`;
-      }).join('') : '<span class="muted small">이번 달은 다 같이 되는 날이 없어요 😢</span>'}</div></section>`;
   }
 
   // ---------- 팝업(모달) ----------
@@ -870,7 +850,7 @@
       return false;
     },
     'g-busy'(f) {
-      if (!st.groupId) return false;
+      if (!st.groupId || !f.label.value.trim()) return false;
       S.addBusy(st.groupId, st.gDate, f.label.value);
       render();
       document.querySelector('form[data-form="g-busy"] input')?.focus();

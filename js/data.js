@@ -443,7 +443,7 @@
       send(sb.from('group_members').update({ color }).eq('group_id', gid).eq('user_id', meId), '색 저장');
     },
     addBusy(gid, date, label) {
-      label = (label || '').trim().slice(0, 20);
+      label = (label || '').trim().slice(0, 40);
       const b = { id: uuid(), groupId: gid, userId: meId, date, label, createdAt: Date.now() };
       gBusy.set(b.id, b);
       send(sb.from('group_busy').insert({ id: b.id, group_id: gid, user_id: meId, date, label }), '일정 저장');
