@@ -397,6 +397,26 @@
     // ---------- 알림 ----------
     notifications() { return notifs; },
     onNotify() {}, // app.js 에서 데스크톱 알림 띄우는 함수로 바꿔 끼움
+
+    // ---------- 푸시 알림 (앱이 꺼져 있어도) ----------
+    async pushPublicKey() {
+      const r = await fetch(cfg.url + '/functions/v1/push');
+      if (!r.ok) throw new Error('푸시 서버에 연결하지 못했어요');
+      return (await r.json()).publicKey;
+    },
+    async savePushSubscription(sub, pref) {
+      const j = sub.toJSON();
+      const { error } = await sb.rpc('save_push_subscription', {
+        p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth, p_reaction: pref.reaction, p_follow: pref.follow,
+      });
+      if (error) throw new Error(error.message);
+    },
+    async removePushSubscription(endpoint) {
+      await sb.from('push_subscriptions').delete().eq('endpoint', endpoint);
+    },
+    updatePushPrefs(endpoint, pref) {
+      send(sb.from('push_subscriptions').update({ want_reaction: pref.reaction, want_follow: pref.follow }).eq('endpoint', endpoint), '알림 설정');
+    },
     async checkNotifications() {
       if (!meId) return;
       try {

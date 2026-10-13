@@ -74,7 +74,7 @@
   function loadNotify() {
     let n = {};
     try { n = JSON.parse(localStorage.getItem(NOTIFY_KEY)) || {}; } catch (e) { /* 무시 */ }
-    return { on: !!n.on, reaction: n.reaction !== false, follow: n.follow !== false };
+    return { on: !!n.on, push: !!n.push, reaction: n.reaction !== false, follow: n.follow !== false };
   }
   function saveNotify(patch) {
     try { localStorage.setItem(NOTIFY_KEY, JSON.stringify({ ...loadNotify(), ...patch })); } catch (e) { /* 무시 */ }
@@ -92,9 +92,35 @@
       x.onclick = () => { window.focus(); st.view = { type: 'notifs' }; st.modal = null; render(); S.markAllRead(); x.close(); };
     } catch (e) { console.error(e); }
   }
+  // ---------- 푸시 알림 (앱이 꺼져 있어도) ----------
+  const canPush = () => 'serviceWorker' in navigator && 'PushManager' in window && canNotify();
+  let swReg = null, pushKey = null;
+  if (canPush()) {
+    navigator.serviceWorker.register('sw.js').then((r) => { swReg = r; }).catch((e) => console.error(e));
+    navigator.serviceWorker.addEventListener('message', (e) => {
+      if (e.data === 'open-notifs' && S.me()) { st.view = { type: 'notifs' }; st.modal = null; render(); S.markAllRead(); }
+    });
+  }
+  function preparePush() {
+    if (canPush() && !pushKey) S.pushPublicKey().then((k) => { pushKey = k; }).catch((e) => console.error(e));
+  }
+  const b64ToBytes = (b64) => {
+    const s = atob((b64 + '='.repeat((4 - (b64.length % 4)) % 4)).replace(/-/g, '+').replace(/_/g, '/'));
+    return Uint8Array.from(s, (c) => c.charCodeAt(0));
+  };
+  async function currentPushSub() {
+    if (!swReg) return null;
+    try { return await swReg.pushManager.getSubscription(); } catch (e) { return null; }
+  }
+  async function turnOffNotify() {
+    saveNotify({ on: false, push: false });
+    const sub = await currentPushSub();
+    if (sub) { try { await S.removePushSubscription(sub.endpoint); } catch (e) { /* 무시 */ } await sub.unsubscribe().catch(() => {}); }
+  }
+
   S.onNotify = (list) => {
     const pref = loadNotify();
-    if (!pref.on || !canNotify() || Notification.permission !== 'granted') return;
+    if (!pref.on || pref.push || !canNotify() || Notification.permission !== 'granted') return;
     const wanted = list.filter((n) => (n.type === 'follow' ? pref.follow : pref.reaction));
     if (!wanted.length) return;
     if (wanted.length > 3) { showDesktop('갓생메이트', `새 알림이 ${wanted.length}개 있어요.`, 'many'); return; }
@@ -533,7 +559,7 @@
     const n = loadNotify();
     const denied = Notification.permission === 'denied';
     const on = n.on && Notification.permission === 'granted';
-    return `<div class="set-row"><span>🔔 데스크톱 알림<br><small class="muted">${denied ? '브라우저에서 알림이 차단돼 있어요 (아래 안내 참고)' : on ? '새 공감·팔로워를 바로 알려드려요' : '꺼져 있어요'}</small></span>
+    return `<div class="set-row"><span>🔔 데스크톱 알림<br><small class="muted">${denied ? '브라우저에서 알림이 차단돼 있어요 (아래 안내 참고)' : on ? (n.push ? '앱을 꺼도 알림이 와요 (푸시)' : '앱이 켜져 있을 때 알림이 와요') : '꺼져 있어요'}</small></span>
         <button class="toggle ${on ? 'on' : ''}" data-action="notify-toggle" role="switch" aria-checked="${on}" aria-label="데스크톱 알림"><i></i></button></div>
       ${on ? `<div class="set-sub">
         <label><input type="checkbox" data-change="notify-reaction" ${n.reaction ? 'checked' : ''}> 공감 이모티콘</label>
@@ -811,13 +837,23 @@
     theme({ color }) { saveTheme({ color }); },
     'notify-toggle'() {
       const n = loadNotify();
-      if (n.on && Notification.permission === 'granted') { saveNotify({ on: false }); return; }
-      if (Notification.permission === 'denied') { alert('브라우저가 알림을 막고 있어요. 아래 안내대로 허용한 뒤 다시 눌러주세요.'); return; }
-      Notification.requestPermission().then((p) => {
-        if (p === 'granted') { saveNotify({ on: true }); showDesktop('갓생메이트', '알림이 켜졌어요! 🎉', 'hello'); }
-        else saveNotify({ on: false });
-        render();
+      if (n.on && Notification.permission === 'granted') { turnOffNotify().then(render); return false; }
+      if (Notification.permission === 'denied') { alert('브라우저가 알림을 막고 있어요. 아래 안내대로 허용한 뒤 다시 눌러주세요.'); return false; }
+      const pageOnly = () => Notification.requestPermission().then((p) => {
+        if (p === 'granted') { saveNotify({ on: true, push: false }); showDesktop('갓생메이트', '알림이 켜졌어요! (앱이 켜져 있을 때 와요)', 'hello'); }
+        else saveNotify({ on: false, push: false });
       });
+      // 푸시 등록은 버튼 누른 그 순간에 바로 불러야 사파리도 허용 창을 띄워줘요
+      const job = swReg && pushKey
+        ? swReg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(pushKey) })
+          .then(async (sub) => {
+            await S.savePushSubscription(sub, n);
+            saveNotify({ on: true, push: true });
+            showDesktop('갓생메이트', '알림이 켜졌어요! 앱을 꺼도 알림이 와요 🎉', 'hello');
+          })
+          .catch((e) => { console.error(e); if (Notification.permission !== 'denied') return pageOnly(); saveNotify({ on: false, push: false }); })
+        : pageOnly();
+      job.finally(render);
       return false;
     },
     'notify-test'() { showDesktop('갓생메이트', '알림이 잘 와요! 👍', 'test'); return false; },
@@ -890,7 +926,8 @@
     logout() {
       if (!confirm('로그아웃할까요?')) return false;
       Object.assign(st, { tab: 'today', view: null, modal: null, authMode: 'login', authError: '' });
-      S.logout().then(render);
+      // 로그아웃하면 이 기기로 오던 푸시도 끊음 (다음 사람이 내 알림을 받지 않게)
+      turnOffNotify().finally(() => S.logout().then(render));
       return false;
     },
   };
@@ -912,7 +949,7 @@
   async function authRun(fn) {
     if (st.busy) return;
     st.busy = true; st.authError = ''; render();
-    try { await fn(); Object.assign(st, { tab: 'today', view: null, selDate: S.today(), calMonth: S.today().slice(0, 7) }); }
+    try { await fn(); Object.assign(st, { tab: 'today', view: null, selDate: S.today(), calMonth: S.today().slice(0, 7) }); preparePush(); }
     catch (err) { st.authError = err.message; }
     st.busy = false; render();
   }
@@ -1007,8 +1044,10 @@
       wrap.querySelector('span').style.setProperty('--pick', e.target.value);
     }
     if (k === 'g-color') { S.setGroupColor(st.groupId, e.target.value); render(); }
-    if (k === 'notify-reaction') saveNotify({ reaction: e.target.checked });
-    if (k === 'notify-follow') saveNotify({ follow: e.target.checked });
+    if (k === 'notify-reaction' || k === 'notify-follow') {
+      saveNotify(k === 'notify-reaction' ? { reaction: e.target.checked } : { follow: e.target.checked });
+      if (loadNotify().push) { const sub = await currentPushSub(); if (sub) S.updatePushPrefs(sub.endpoint, loadNotify()); }
+    }
     if (k === 'theme-color') { saveTheme({ color: e.target.value }); render(); }
     if (k === 'theme-mode') { saveTheme({ mode: e.target.value }); }
     if (k === 'default-vis') { S.updateProfile({ defaultVis: e.target.value }); }
@@ -1046,5 +1085,11 @@
     const el = document.activeElement;
     if (st.modal || st.picker || (el && /INPUT|SELECT|TEXTAREA/.test(el.tagName))) return;
     render();
-  }).then(() => { if (S.loginError) st.authError = S.loginError; render(); });
+  }).then(() => {
+    if (S.loginError) st.authError = S.loginError;
+    // 푸시 알림을 눌러서 앱이 열린 경우 → 알림 화면으로
+    if (location.hash === '#notifs') { history.replaceState(null, '', location.pathname); if (S.me()) { st.view = { type: 'notifs' }; S.markAllRead(); } }
+    if (S.me()) preparePush();
+    render();
+  });
 })();
