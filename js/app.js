@@ -769,5 +769,5 @@
     const el = document.activeElement;
     if (st.modal || st.picker || (el && /INPUT|SELECT|TEXTAREA/.test(el.tagName))) return;
     render();
-  }).then(render);
+  }).then(() => { if (S.loginError) st.authError = S.loginError; render(); });
 })();

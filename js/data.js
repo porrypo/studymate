@@ -110,6 +110,12 @@
     // 처음 열 때: 로그인 상태면 데이터 불러오기
     async init(changeCallback) {
       onChange = changeCallback || onChange;
+      // 구글 로그인 후 돌아왔는데 실패했으면 주소에 에러가 붙어 와요 → 화면에 보여주기
+      const params = new URLSearchParams(location.hash.slice(1) + '&' + location.search.slice(1));
+      if (params.get('error_description')) {
+        S.loginError = '로그인에 실패했어요: ' + params.get('error_description').replace(/\+/g, ' ');
+        history.replaceState(null, '', location.pathname);
+      }
       const { data } = await sb.auth.getSession();
       if (data.session) {
         meId = data.session.user.id;
