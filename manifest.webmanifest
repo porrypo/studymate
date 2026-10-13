@@ -1,6 +1,6 @@
 {
-  "name": "스터디메이트",
-  "short_name": "스터디메이트",
+  "name": "갓생메이트",
+  "short_name": "갓생메이트",
   "description": "친구와 할 일·일정을 공유하는 플래너",
   "start_url": "./",
   "scope": "./",

@@ -110,7 +110,7 @@
   function renderSidebar() {
     const me = S.me();
     return `<aside class="sidebar">
-      <div class="brand">📚 스터디메이트</div>
+      <div class="brand">📚 갓생메이트</div>
       <nav>${TABS.map(([k, label]) => `<button class="${!st.view && st.tab === k ? 'on' : ''}" data-action="tab" data-tab="${k}">${ICON[k]}<span>${label}</span></button>`).join('')}</nav>
       <button class="side-me" data-action="tab" data-tab="my">${avatar(me, 32)}<span>${esc(me.nickname)}</span></button>
     </aside>`;
@@ -125,7 +125,7 @@
     const signup = st.authMode === 'signup';
     return `<div class="auth">
       <div class="auth-logo">📚</div>
-      <h1 class="auth-title">스터디메이트</h1>
+      <h1 class="auth-title">갓생메이트</h1>
       <p class="auth-sub">오늘 할 일과 일정을 친구와 함께</p>
       <form class="auth-form" data-form="${signup ? 'signup' : 'login'}">
         ${signup ? '<input name="nickname" placeholder="닉네임" maxlength="12" autocomplete="nickname">' : ''}
@@ -490,7 +490,7 @@
         <button class="set-row" data-action="open-cats"><span>카테고리 관리</span><span class="chev">›</span></button>
         <button class="set-row" data-action="logout"><span>로그아웃</span><span class="chev">›</span></button>
       </div>
-      <p class="muted center small">스터디메이트 v0.3 · @${esc(me.username)}</p>
+      <p class="muted center small">갓생메이트 v0.3 · @${esc(me.username)}</p>
     </main>`;
   }
 
