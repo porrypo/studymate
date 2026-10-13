@@ -35,7 +35,7 @@
   function avatar(u, size = 40) {
     if (!u) return '';
     const style = `width:${size}px;height:${size}px;font-size:${Math.round(size * 0.5)}px`;
-    if (u.avatar && u.avatar.startsWith('data:')) return `<img class="avatar" style="${style}" src="${u.avatar}" alt="">`;
+    if (u.avatar && u.avatar.startsWith('data:image/')) return `<img class="avatar" style="${style}" src="${esc(u.avatar)}" alt="">`;
     if (u.avatar) return `<span class="avatar" style="${style}">${esc(u.avatar)}</span>`;
     const hue = [...u.nickname].reduce((a, c) => a + c.charCodeAt(0), 0) % 360;
     return `<span class="avatar letter" style="${style};background:hsl(${hue} 60% 55%)">${esc(u.nickname[0])}</span>`;
@@ -45,7 +45,12 @@
   const THEMES = [['라벤더', '#5E5CE6'], ['블루', '#007AFF'], ['민트', '#30B0C7'], ['그린', '#34C759'], ['옐로', '#F5B400'],
     ['오렌지', '#FF9500'], ['코랄', '#FF6B6B'], ['핑크', '#FF2D55'], ['퍼플', '#AF52DE'], ['그레이', '#8E8E93']];
   const DEFAULT_THEME = THEMES[0][1];
-  function loadTheme() { try { return JSON.parse(localStorage.getItem('studymate_theme')) || {}; } catch (e) { return {}; } }
+  function loadTheme() {
+    let t = {};
+    try { t = JSON.parse(localStorage.getItem('studymate_theme')) || {}; } catch (e) { /* 무시 */ }
+    if (t.color && !/^#[0-9a-f]{6}$/i.test(t.color)) delete t.color;
+    return t;
+  }
   function applyTheme(t = loadTheme()) {
     const root = document.documentElement;
     root.style.setProperty('--theme', t.color || DEFAULT_THEME);
@@ -119,7 +124,7 @@
       <form class="auth-form" data-form="${signup ? 'signup' : 'login'}">
         ${signup ? '<input name="nickname" placeholder="닉네임" maxlength="12" autocomplete="nickname">' : ''}
         <input name="username" placeholder="아이디${signup ? ' (영어 소문자·숫자 4~16자)' : ''}" maxlength="16" autocomplete="username" autocapitalize="off" spellcheck="false">
-        <input name="password" type="password" placeholder="비밀번호${signup ? ' (6자 이상)' : ''}" autocomplete="${signup ? 'new-password' : 'current-password'}">
+        <input name="password" type="password" placeholder="비밀번호${signup ? ' (8자 이상)' : ''}" autocomplete="${signup ? 'new-password' : 'current-password'}">
         ${st.authError ? `<p class="error">${esc(st.authError)}</p>` : ''}
         <button class="btn primary big" type="submit" ${st.busy ? 'disabled' : ''}>${st.busy ? '잠시만요…' : signup ? '가입하기' : '로그인'}</button>
       </form>
@@ -173,7 +178,7 @@
       const date = S.addDays(start, i);
       const d = S.parseDate(date);
       const list = (byDate[date] || []).sort((a, b) => (a.t.time || '99').localeCompare(b.t.time || '99') || b.mine - a.mine || a.order - b.order);
-      const chips = list.slice(0, 4).map(({ t, color, tag }) => `<div class="chip ${t.done ? 'done' : ''}" style="--c:${color}">${tag ? `<i>${esc(tag)}</i>` : ''}${t.time ? `<b>${t.time}</b>` : ''}${esc(t.title)}</div>`).join('');
+      const chips = list.slice(0, 4).map(({ t, color, tag }) => `<div class="chip ${t.done ? 'done' : ''}" style="--c:${color}">${tag ? `<i>${esc(tag)}</i>` : ''}${t.time ? `<b>${esc(t.time)}</b>` : ''}${esc(t.title)}</div>`).join('');
       cells += `<button class="cal-cell ${d.getMonth() + 1 !== m ? 'out' : ''} ${date === selDate ? 'sel' : ''} ${date === t0 ? 'today' : ''} ${d.getDay() === 0 ? 'sun' : ''}" data-action="select-date" data-scope="${scope}" data-date="${date}">
         <span class="num">${d.getDate()}</span>${chips}${list.length > 4 ? `<div class="more">+${list.length - 4}개</div>` : ''}
       </button>`;
@@ -295,7 +300,7 @@
       const cats = Object.fromEntries(S.categories(u.id).map((c) => [c.id, c]));
       const cells = days.map((date) => {
         const list = S.todosOn(u.id, date).filter((t) => S.canSee(me.id, t)).sort(byTime);
-        return `<div class="wk-cell ${date === t0 ? 'today' : ''}">${list.map((t) => `<div class="wk-item ${t.done ? 'done' : ''}" style="--c:${cats[t.categoryId]?.color || '#8E8E93'}">${t.time ? `<b>${t.time}</b>` : ''}${esc(t.title)}</div>`).join('')}</div>`;
+        return `<div class="wk-cell ${date === t0 ? 'today' : ''}">${list.map((t) => `<div class="wk-item ${t.done ? 'done' : ''}" style="--c:${cats[t.categoryId]?.color || '#8E8E93'}">${t.time ? `<b>${esc(t.time)}</b>` : ''}${esc(t.title)}</div>`).join('')}</div>`;
       }).join('');
       return `<div class="wk-name" ${u.id === me.id ? '' : `data-action="open-profile" data-id="${u.id}"`}>${avatar(u, 30)}<span>${u.id === me.id ? '나' : esc(u.nickname)}</span></div>${cells}`;
     }).join('');

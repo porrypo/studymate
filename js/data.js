@@ -44,10 +44,21 @@
   const uuid = () => (crypto.randomUUID ? crypto.randomUUID()
     : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => { const r = (Math.random() * 16) | 0; return (c === 'x' ? r : (r & 3) | 8).toString(16); }));
 
+  // ---------- 보안: 서버에서 온 값 중 화면에 그대로 들어가는 것은 형식을 검사 ----------
+  // (나쁜 코드를 프로필 사진·색·시간에 숨겨서 친구 화면에서 실행시키는 공격(XSS) 막기)
+  const safeColor = (c) => (/^#[0-9a-f]{6}$/i.test(c || '') ? c : '#8E8E93');
+  const safeTime = (t) => (/^([01]\d|2[0-3]):[0-5]\d$/.test(t || '') ? t : '');
+  const safeAvatar = (a) => {
+    if (!a) return '';
+    if (/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(a)) return a;
+    if ([...a].length <= 4 && !/[<>"'&]/.test(a)) return a; // 이모지
+    return '';
+  };
+
   // ---------- DB 행 ↔ 앱 객체 변환 ----------
-  const fromProfile = (r) => ({ id: r.id, username: r.username, nickname: r.nickname, avatar: r.avatar, bio: r.bio, defaultVis: r.default_vis, needsSetup: r.needs_setup });
-  const fromCat = (r) => ({ id: r.id, userId: r.user_id, name: r.name, emoji: r.emoji, color: r.color, order: r.sort });
-  const fromTodo = (r) => ({ id: r.id, userId: r.user_id, categoryId: r.category_id, date: r.date, title: r.title, time: r.time, visibility: r.visibility, done: r.done, doneAt: r.done_at ? Date.parse(r.done_at) : null, order: r.sort, createdAt: Date.parse(r.created_at) });
+  const fromProfile = (r) => ({ id: r.id, username: r.username, nickname: r.nickname, avatar: safeAvatar(r.avatar), bio: r.bio, defaultVis: r.default_vis, needsSetup: r.needs_setup });
+  const fromCat = (r) => ({ id: r.id, userId: r.user_id, name: r.name, emoji: r.emoji, color: safeColor(r.color), order: r.sort });
+  const fromTodo = (r) => ({ id: r.id, userId: r.user_id, categoryId: r.category_id, date: r.date, title: r.title, time: safeTime(r.time), visibility: r.visibility, done: r.done, doneAt: r.done_at ? Date.parse(r.done_at) : null, order: r.sort, createdAt: Date.parse(r.created_at) });
   const fromReaction = (r) => ({ todoId: r.todo_id, userId: r.user_id, emoji: r.emoji, at: Date.parse(r.created_at) });
   const fromNotif = (r) => ({ id: r.id, toUserId: r.to_user, fromUserId: r.from_user, type: r.type, todoId: r.todo_id, todoTitle: r.todo_title, emoji: r.emoji, read: r.read, at: Date.parse(r.created_at) });
   const TODO_COLS = { categoryId: 'category_id', date: 'date', title: 'title', time: 'time', visibility: 'visibility', done: 'done', order: 'sort' };
@@ -108,7 +119,7 @@
   }
 
   const S = {
-    COLORS, REACTIONS, VIS, today, fmtDate, parseDate, addDays,
+    COLORS, REACTIONS, VIS, today, fmtDate, parseDate, addDays, safeColor,
     ready: false,
 
     // 처음 열 때: 로그인 상태면 데이터 불러오기
@@ -182,7 +193,7 @@
       username = (username || '').trim().toLowerCase(); nickname = (nickname || '').trim();
       if (!username || !password || !nickname) throw new Error('모든 항목을 입력해주세요.');
       if (!/^[a-z0-9_]{4,16}$/.test(username)) throw new Error('아이디는 영어 소문자·숫자·_ 로 4~16자예요.');
-      if (password.length < 6) throw new Error('비밀번호는 6자 이상이어야 해요.');
+      if (password.length < 8) throw new Error('비밀번호는 8자 이상이어야 해요.');
       const { data: taken, error: e1 } = await sb.rpc('name_taken', { p_username: username, p_nickname: nickname });
       if (e1) throw new Error('서버에 연결하지 못했어요. (' + e1.message + ')');
       if (taken === 'username') throw new Error('이미 사용 중인 아이디예요.');
