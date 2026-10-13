@@ -483,3 +483,13 @@ button.react:active { transform: scale(.92); }
 /* 시간 고르기 (오전/오후 · 시 · 분) */
 .time-pick { display: flex; gap: 6px; }
 .time-pick select { flex: 1; min-width: 0; height: 48px; padding: 0 8px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--card); color: var(--text); }
+
+/* 알림 설정 */
+.toggle { position: relative; width: 50px; height: 30px; border-radius: 999px; background: var(--line); flex: none; transition: background .2s; }
+.toggle i { position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.2); transition: left .2s; }
+.toggle.on { background: var(--theme); }
+.toggle.on i { left: 23px; }
+.set-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 10px 0 12px; border-bottom: 1px solid var(--line); font-size: 14px; }
+.set-sub input { accent-color: var(--theme); width: 16px; height: 16px; vertical-align: -3px; margin-right: 4px; }
+.set-sub .link { margin-left: auto; }
+.set-help { font-size: 12px; color: var(--sub); line-height: 1.7; padding: 8px 0 12px; margin: 0; border-bottom: 1px solid var(--line); }

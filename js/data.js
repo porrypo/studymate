@@ -100,6 +100,7 @@
     meId = null; users = new Map(); follows = []; cats = new Map(); todos = new Map(); reactions = []; notifs = [];
     loadedMonths = new Set(); loadedCatUsers = new Set(); loading.clear();
     groupsLoaded = false; groups = new Map(); gMembers = []; gBusy = new Map(); gLoadedMonths = new Set();
+    seenNotifs = null;
   }
 
   // 서버 저장이 실패하면 알려주고 서버 상태로 다시 맞춤
@@ -110,6 +111,15 @@
   }
   function must({ data, error }) { if (error) throw error; return data; }
 
+  // 새로 온 알림 찾기: 처음 불러올 때 있던 건 '이미 본 것'으로 치고, 그 뒤에 새로 생긴 것만 알려줌
+  let seenNotifs = null;
+  function detectNewNotifs() {
+    if (!seenNotifs) { seenNotifs = new Set(notifs.map((x) => x.id)); return; }
+    const fresh = notifs.filter((x) => !seenNotifs.has(x.id) && !x.read);
+    notifs.forEach((x) => seenNotifs.add(x.id));
+    if (fresh.length) S.onNotify(fresh);
+  }
+
   async function loadBase() {
     const [p, f, n] = await Promise.all([
       sb.from('profiles').select('*').limit(2000),
@@ -119,6 +129,7 @@
     users = new Map(must(p).map((r) => [r.id, fromProfile(r)]));
     follows = must(f).map((r) => ({ from: r.follower, to: r.following }));
     notifs = must(n).map(fromNotif);
+    detectNewNotifs();
   }
 
   // key = "userId|YYYY-MM"
@@ -167,7 +178,8 @@
       }
       S.ready = true;
       // 30초마다 + 창으로 돌아올 때마다 친구들 새 소식 불러오기
-      setInterval(() => meId && !document.hidden && S.refresh(), 30000);
+      // 창이 뒤에 있을 땐 알림만 가볍게 확인 (데스크톱 알림용)
+      setInterval(() => { if (!meId) return; if (document.hidden) S.checkNotifications(); else S.refresh(); }, 30000);
       window.addEventListener('focus', () => meId && S.refresh());
     },
 
@@ -384,6 +396,16 @@
 
     // ---------- 알림 ----------
     notifications() { return notifs; },
+    onNotify() {}, // app.js 에서 데스크톱 알림 띄우는 함수로 바꿔 끼움
+    async checkNotifications() {
+      if (!meId) return;
+      try {
+        const { data, error } = await sb.from('notifications').select('*').eq('to_user', meId).order('created_at', { ascending: false }).limit(100);
+        if (error) throw error;
+        notifs = data.map(fromNotif);
+        detectNewNotifs();
+      } catch (e) { console.error(e); }
+    },
     unreadCount() { return notifs.filter((n) => !n.read).length; },
     markAllRead() {
       if (!notifs.some((n) => !n.read)) return;

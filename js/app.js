@@ -68,6 +68,39 @@
   }
   applyTheme();
 
+  // ---------- 데스크톱 알림 (맥·윈도우 브라우저 알림, 이 브라우저에 설정 저장) ----------
+  const NOTIFY_KEY = 'studymate_notify';
+  const canNotify = () => 'Notification' in window;
+  function loadNotify() {
+    let n = {};
+    try { n = JSON.parse(localStorage.getItem(NOTIFY_KEY)) || {}; } catch (e) { /* 무시 */ }
+    return { on: !!n.on, reaction: n.reaction !== false, follow: n.follow !== false };
+  }
+  function saveNotify(patch) {
+    try { localStorage.setItem(NOTIFY_KEY, JSON.stringify({ ...loadNotify(), ...patch })); } catch (e) { /* 무시 */ }
+  }
+  function notifText(n) {
+    const from = S.user(n.fromUserId);
+    const name = from ? from.nickname : '친구';
+    if (n.type === 'follow') return { title: '새 팔로워', body: `${name}님이 회원님을 팔로우하기 시작했어요.` };
+    const label = S.REACTIONS.find((r) => r.e === n.emoji)?.label || '';
+    return { title: `${n.emoji} ${name}`, body: `${n.todoTitle ? `‘${n.todoTitle}’에 ` : ''}${n.emoji} ${label}를 남겼어요.` };
+  }
+  function showDesktop(title, body, tag) {
+    try {
+      const x = new Notification(title, { body, tag, icon: 'icons/icon-192.png' });
+      x.onclick = () => { window.focus(); st.view = { type: 'notifs' }; st.modal = null; render(); S.markAllRead(); x.close(); };
+    } catch (e) { console.error(e); }
+  }
+  S.onNotify = (list) => {
+    const pref = loadNotify();
+    if (!pref.on || !canNotify() || Notification.permission !== 'granted') return;
+    const wanted = list.filter((n) => (n.type === 'follow' ? pref.follow : pref.reaction));
+    if (!wanted.length) return;
+    if (wanted.length > 3) { showDesktop('갓생메이트', `새 알림이 ${wanted.length}개 있어요.`, 'many'); return; }
+    wanted.forEach((n) => { const t = notifText(n); showDesktop(t.title, t.body, n.id); });
+  };
+
   const ICON = {
     today: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
     feed: '<svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z"/></svg>',
@@ -484,6 +517,7 @@
 
       <h3 class="section-title">설정</h3>
       <div class="card settings">
+        ${renderNotifySettings()}
         ${renderThemeSettings()}
         <label class="set-row"><span>새 할 일 기본 공개범위</span>
           <select data-change="default-vis">${Object.entries(S.VIS).map(([k, v]) => `<option value="${k}" ${me.defaultVis === k ? 'selected' : ''}>${v.icon} ${v.label}</option>`).join('')}</select></label>
@@ -492,6 +526,24 @@
       </div>
       <p class="muted center small">갓생메이트 v0.3 · @${esc(me.username)}</p>
     </main>`;
+  }
+
+  function renderNotifySettings() {
+    if (!canNotify()) return '<div class="set-row"><span>🔔 데스크톱 알림</span><span class="muted small">이 브라우저는 알림을 지원하지 않아요</span></div>';
+    const n = loadNotify();
+    const denied = Notification.permission === 'denied';
+    const on = n.on && Notification.permission === 'granted';
+    return `<div class="set-row"><span>🔔 데스크톱 알림<br><small class="muted">${denied ? '브라우저에서 알림이 차단돼 있어요 (아래 안내 참고)' : on ? '새 공감·팔로워를 바로 알려드려요' : '꺼져 있어요'}</small></span>
+        <button class="toggle ${on ? 'on' : ''}" data-action="notify-toggle" role="switch" aria-checked="${on}" aria-label="데스크톱 알림"><i></i></button></div>
+      ${on ? `<div class="set-sub">
+        <label><input type="checkbox" data-change="notify-reaction" ${n.reaction ? 'checked' : ''}> 공감 이모티콘</label>
+        <label><input type="checkbox" data-change="notify-follow" ${n.follow ? 'checked' : ''}> 새 팔로워</label>
+        <button class="link small" data-action="notify-test">알림 시험해 보기</button>
+      </div>` : ''}
+      ${denied ? `<p class="set-help">브라우저가 알림을 막고 있어요.<br>
+        · <b>Safari</b>: 메뉴 Safari → 설정 → 웹사이트 → 알림 → 이 사이트를 '허용'<br>
+        · <b>Chrome</b>: 주소창 왼쪽 아이콘 → 사이트 설정 → 알림 '허용'<br>
+        · <b>맥</b>: 시스템 설정 → 알림 → 브라우저(또는 갓생메이트) 알림 켜기</p>` : ''}`;
   }
 
   function renderThemeSettings() {
@@ -757,6 +809,18 @@
       else { st.selDate = t; st.calMonth = monthOf(t); }
     },
     theme({ color }) { saveTheme({ color }); },
+    'notify-toggle'() {
+      const n = loadNotify();
+      if (n.on && Notification.permission === 'granted') { saveNotify({ on: false }); return; }
+      if (Notification.permission === 'denied') { alert('브라우저가 알림을 막고 있어요. 아래 안내대로 허용한 뒤 다시 눌러주세요.'); return; }
+      Notification.requestPermission().then((p) => {
+        if (p === 'granted') { saveNotify({ on: true }); showDesktop('갓생메이트', '알림이 켜졌어요! 🎉', 'hello'); }
+        else saveNotify({ on: false });
+        render();
+      });
+      return false;
+    },
+    'notify-test'() { showDesktop('갓생메이트', '알림이 잘 와요! 👍', 'test'); return false; },
     'feed-mode'({ mode }) { st.feedMode = mode; },
 
     // 그룹
@@ -943,6 +1007,8 @@
       wrap.querySelector('span').style.setProperty('--pick', e.target.value);
     }
     if (k === 'g-color') { S.setGroupColor(st.groupId, e.target.value); render(); }
+    if (k === 'notify-reaction') saveNotify({ reaction: e.target.checked });
+    if (k === 'notify-follow') saveNotify({ follow: e.target.checked });
     if (k === 'theme-color') { saveTheme({ color: e.target.value }); render(); }
     if (k === 'theme-mode') { saveTheme({ mode: e.target.value }); }
     if (k === 'default-vis') { S.updateProfile({ defaultVis: e.target.value }); }
