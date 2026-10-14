@@ -178,7 +178,7 @@
   const canPush = () => 'serviceWorker' in navigator && 'PushManager' in window && canNotify();
   let swReg = null, pushKey = null;
   if (canPush()) {
-    navigator.serviceWorker.register('sw.js').then((r) => { swReg = r; }).catch((e) => console.error(e));
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((r) => { swReg = r; r.update().catch(() => {}); }).catch((e) => console.error(e));
     navigator.serviceWorker.addEventListener('message', (e) => {
       if (e.data === 'open-notifs' && S.me()) { st.view = { type: 'notifs' }; st.modal = null; render(); S.markAllRead(); }
     });

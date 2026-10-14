@@ -4,6 +4,16 @@
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
 
+// 업데이트가 바로 보이게: 이 사이트 파일은 항상 서버에 "바뀐 거 있어?" 하고 확인한 뒤 씀
+// (브라우저나 Dock 앱이 옛날 화면을 계속 보여 주는 문제 방지. 인터넷이 끊기면 그냥 원래대로)
+self.addEventListener('fetch', (e) => {
+  const req = e.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin) return;
+  e.respondWith(fetch(url.href, { cache: 'no-cache', credentials: 'same-origin' }).catch(() => fetch(req)));
+});
+
 self.addEventListener('push', (e) => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch { d = { body: e.data ? e.data.text() : '' }; }
