@@ -736,21 +736,21 @@ html.widget-mode body { margin: 0; overflow: hidden; }
    공통: 테두리 + 연한 바깥 띠, 날짜 칸은 하얗게(일정 색이 그대로 보이게)
    ============================================================= */
 .calendar[data-deco="ocean"], .calendar[data-deco="mint"], .calendar[data-deco="lemon"], .calendar[data-deco="apple"],
-.calendar[data-deco="peach"], .calendar[data-deco="hanyang"], .calendar[data-deco="bunny"] {
+.calendar[data-deco="peach"], .calendar[data-deco="bunny"] {
   --text: #2B2B2B; --sub: #8A8A8A; --line: #EEEEEE; --chip-mix: 18%; --chip-base: #fff;
   color: var(--text); background: var(--card);
   border: 2px solid var(--frame); box-shadow: 0 0 0 5px color-mix(in srgb, var(--frame) 25%, transparent);
 }
 .calendar[data-deco="ocean"] .cal-grid, .calendar[data-deco="mint"] .cal-grid, .calendar[data-deco="lemon"] .cal-grid, .calendar[data-deco="apple"] .cal-grid,
-.calendar[data-deco="peach"] .cal-grid, .calendar[data-deco="hanyang"] .cal-grid, .calendar[data-deco="bunny"] .cal-grid {
+.calendar[data-deco="peach"] .cal-grid, .calendar[data-deco="bunny"] .cal-grid {
   background: #fff; border-radius: 12px; overflow: hidden;
 }
 .calendar[data-deco="ocean"]::after, .calendar[data-deco="mint"]::after, .calendar[data-deco="lemon"]::after, .calendar[data-deco="apple"]::after,
-.calendar[data-deco="peach"]::after, .calendar[data-deco="hanyang"]::after, .calendar[data-deco="bunny"]::after {
+.calendar[data-deco="peach"]::after, .calendar[data-deco="bunny"]::after {
   content: ''; position: absolute; z-index: 2; pointer-events: none;
 }
 .calendar[data-deco="ocean"] .cal-cell.today .num, .calendar[data-deco="mint"] .cal-cell.today .num, .calendar[data-deco="lemon"] .cal-cell.today .num,
-.calendar[data-deco="apple"] .cal-cell.today .num, .calendar[data-deco="peach"] .cal-cell.today .num, .calendar[data-deco="hanyang"] .cal-cell.today .num, .calendar[data-deco="bunny"] .cal-cell.today .num { color: #fff; }
+.calendar[data-deco="apple"] .cal-cell.today .num, .calendar[data-deco="peach"] .cal-cell.today .num, .calendar[data-deco="bunny"] .cal-cell.today .num { color: #fff; }
 
 /* 🌊 바다: 위엔 파도 위 돛단배·고래·갈매기, 아래엔 모래·산호·불가사리 */
 .calendar[data-deco="ocean"] { --frame: #8ED3EA; --card: #F4FBFE; margin-top: 76px; margin-bottom: 30px; }
@@ -782,16 +782,6 @@ html.widget-mode body { margin: 0; overflow: hidden; }
 .calendar[data-deco="lemon"]::after { background: url('../icons/deco/lemon-corner.svg') left top / 130px 84px no-repeat, url('../icons/deco/lemon-corner-r.svg') right top / 130px 84px no-repeat, url('../icons/deco/lemon-garland.svg') left 0 top 8px / 100px 36px repeat-x; }
 .calendar[data-deco="apple"]::after { background: url('../icons/deco/apple-corner.svg') left top / 130px 84px no-repeat, url('../icons/deco/apple-corner-r.svg') right top / 130px 84px no-repeat, url('../icons/deco/apple-garland.svg') left 0 top 8px / 100px 36px repeat-x; }
 .calendar[data-deco="peach"]::after { background: url('../icons/deco/peach-corner.svg') left top / 130px 84px no-repeat, url('../icons/deco/peach-corner-r.svg') right top / 130px 84px no-repeat, url('../icons/deco/peach-garland.svg') left 0 top 8px / 100px 36px repeat-x; }
-
-/* 🦁 한양 블루: 파란 삼각 깃발 + 학사모 사자 + 책 */
-.calendar[data-deco="hanyang"] { --frame: #0E4A84; --card: #F5F9FD; margin-top: 70px; margin-bottom: 40px; }
-.calendar[data-deco="hanyang"]::after {
-  left: -8px; right: -8px; top: -72px; bottom: -44px;
-  background:
-    url('../icons/deco/hy-right.svg') right 6px top / 130px 84px no-repeat,
-    url('../icons/deco/hy-pennants.svg') left 0 top 48px / 120px 26px repeat-x,
-    url('../icons/deco/hy-left.svg') left 0 bottom / 130px 84px no-repeat;
-}
 
 /* 🐰 토끼 풀밭: 아래 풀밭에 토끼들과 당근, 위엔 구름 */
 .calendar[data-deco="bunny"] { --frame: #BFE3B0; --card: #F8FCF5; margin-top: 34px; margin-bottom: 40px; }
