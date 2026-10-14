@@ -35,7 +35,16 @@
   };
 
   // 다른 계정으로 바뀔 때 비워 둘 화면 상태
-  const FRESH = { stickerMode: false, decoOpen: false, feedShowQuiet: false, groupId: null, showCode: null, groupForm: null, q: '' };
+  const FRESH = { stickerMode: false, pop: null, feedShowQuiet: false, groupId: null, showCode: null, groupForm: null, q: '' };
+
+  // 눌러야 펼쳐지는 작은 창: 버튼(label) + 펼친 내용(panel)
+  function pop(key, label, panel, cls = '') {
+    const open = st.pop === key;
+    return `<div class="pop-wrap ${open ? 'open' : ''}">
+      <button class="pop-btn ${cls}" data-action="pop" data-key="${key}" aria-expanded="${open}">${label}<span class="chev">▾</span></button>
+      ${open ? `<div class="pop-panel">${panel}</div>` : ''}
+    </div>`;
+  }
 
   // ---------- 작은 도우미 ----------
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -350,7 +359,7 @@
     return `${header('오늘')}
     <main class="page split">
       <div class="col-main">${cal}</div>
-      <div class="col-side">
+      <div class="col-side" data-side="${myCal().deco}">
         <div class="day-head">
           <h2>${fmtDay(st.selDate)}</h2>
           ${isToday ? '<span class="pill">오늘</span>' : ''}
@@ -592,7 +601,7 @@
       </section>
       <div class="split">
         <div class="col-main">${cal}</div>
-        <div class="col-side">
+        <div class="col-side" data-side="${S.calStyle(u.id).deco}">
           <div class="day-head"><h2>${fmtDay(date)}</h2></div>
           ${todos.length ? `<div class="card summary"><div class="label">할 일</div><div class="big-num">${done} <span>/ ${todos.length} 완료</span></div>
               <div class="progress"><div style="width:${Math.round((done / todos.length) * 100)}%"></div></div></div>
@@ -664,17 +673,27 @@
           <div class="hbar-track"><div style="width:${(done / catMax) * 100}%;background:${cat.color}"></div></div><span class="hbar-val">${done}개</span></div>`).join('')}
       </div>` : ''}
 
-      <h3 class="section-title">설정</h3>
+      <h3 class="section-title">알림</h3>
+      <div class="card settings">${renderNotifySettings()}</div>
+
+      <h3 class="section-title">꾸미기</h3>
       <div class="card settings">
-        ${renderNotifySettings()}
         ${renderThemeSettings()}
         ${renderCalSettings()}
+      </div>
+
+      <h3 class="section-title">일정</h3>
+      <div class="card settings">
         <label class="set-row"><span>새 할 일 기본 공개범위</span>
           <select data-change="default-vis">${Object.entries(S.VIS).map(([k, v]) => `<option value="${k}" ${me.defaultVis === k ? 'selected' : ''}>${v.icon} ${v.label}</option>`).join('')}</select></label>
         <button class="set-row" data-action="open-cats"><span>카테고리 관리</span><span class="chev">›</span></button>
-        ${st.hasPw ? '<button class="set-row" data-action="open-password"><span>🔑 비밀번호 바꾸기</span><span class="chev">›</span></button>' : ''}
+      </div>
+
+      <h3 class="section-title">계정</h3>
+      <div class="card settings">
+        ${st.hasPw ? '<button class="set-row" data-action="open-password"><span>비밀번호 바꾸기</span><span class="chev">›</span></button>' : ''}
         <button class="set-row" data-action="logout"><span>로그아웃</span><span class="chev">›</span></button>
-        <button class="set-row danger" data-action="open-delete-account"><span>회원 탈퇴</span><span class="chev">›</span></button>
+        <button class="set-row danger small-row" data-action="open-delete-account"><span>회원 탈퇴</span><span class="chev">›</span></button>
       </div>
       <p class="muted center small">갓생메이트 v0.3 · @${esc(me.username)}</p>
     </main>`;
@@ -685,43 +704,31 @@
     const n = loadNotify();
     const denied = Notification.permission === 'denied';
     const on = n.on && Notification.permission === 'granted';
-    return `<div class="set-row"><span>🔔 데스크톱 알림<br><small class="muted">${denied ? '브라우저에서 알림이 차단돼 있어요 (아래 안내 참고)' : on ? (n.push ? '앱을 꺼도 알림이 와요 (푸시)' : '앱이 켜져 있을 때 알림이 와요') : '꺼져 있어요'}</small></span>
+    return `<div class="set-row"><span>🔔 데스크톱 알림<br><small class="muted">${denied ? '브라우저에서 알림이 막혀 있어요' : on ? (n.push ? '앱을 꺼도 알림이 와요 (푸시)' : '앱이 켜져 있을 때 알림이 와요') : '꺼져 있어요'}</small></span>
         <button class="toggle ${on ? 'on' : ''}" data-action="notify-toggle" role="switch" aria-checked="${on}" aria-label="데스크톱 알림"><i></i></button></div>
       ${on ? `<div class="set-sub">
         <label><input type="checkbox" data-change="notify-reaction" ${n.reaction ? 'checked' : ''}> 공감 이모티콘</label>
         <label><input type="checkbox" data-change="notify-follow" ${n.follow ? 'checked' : ''}> 새 팔로워</label>
         <button class="link small" data-action="notify-test">알림 시험해 보기</button>
       </div>` : ''}
-      ${denied ? `<p class="set-help">브라우저가 알림을 막고 있어요.<br>
+      ${denied ? `<details class="set-help"><summary>알림 다시 켜는 방법 보기</summary>
         · <b>Safari</b>: 메뉴 Safari → 설정 → 웹사이트 → 알림 → 이 사이트를 '허용'<br>
         · <b>Chrome</b>: 주소창 왼쪽 아이콘 → 사이트 설정 → 알림 '허용'<br>
-        · <b>맥</b>: 시스템 설정 → 알림 → 브라우저(또는 갓생메이트) 알림 켜기</p>` : ''}`;
+        · <b>맥</b>: 시스템 설정 → 알림 → 브라우저(또는 갓생메이트) 알림 켜기</details>` : ''}`;
   }
 
   function renderCalSettings() {
     const c = myCal();
     const n = c.stickers.filter(validSticker).length;
     const cur = CAL_DECOS.find(([k]) => k === c.deco) || CAL_DECOS[0];
-    return `<div class="theme-row"><span>📅 달력 꾸미기 <small class="muted">(나를 팔로우하는 친구에게 보여요)</small></span>
-        <div class="deco-bg">
-          <span class="muted small">테마</span>
-          <div class="deco-select ${st.decoOpen ? 'open' : ''}">
-            <button class="deco-current" data-action="deco-open" aria-expanded="${!!st.decoOpen}"><span>${cur[2]}</span>${cur[1]}<span class="chev">▾</span></button>
-            ${st.decoOpen ? `<div class="deco-list" role="listbox">${CAL_DECOS.map(([k, name, icon]) => `<button class="${c.deco === k ? 'on' : ''}" data-action="cal-deco" data-deco="${k}" role="option" aria-selected="${c.deco === k}"><span class="ic">${icon}</span>${name}${c.deco === k ? '<span class="check">✓</span>' : ''}</button>`).join('')}</div>` : ''}
-          </div>
-        </div>
-        <div class="deco-bg">
-          <span class="muted small">스티커</span>
-          <button class="btn sm outline" data-action="sticker-mode">🎀 스티커 붙이기</button>
-          ${n ? `<button class="btn sm ghost" data-action="sticker-clear">모두 떼기 (${n}개)</button>` : ''}
-        </div>
-        <div class="deco-bg">
-          <span class="muted small">배경 사진</span>
-          <label class="btn sm outline">${c.bg ? '사진 바꾸기' : '사진 고르기'}<input type="file" accept="image/*" data-change="cal-bg" hidden></label>
-          ${c.bg ? '<button class="btn sm ghost" data-action="cal-bg-remove">지우기</button>' : ''}
-        </div>
-        ${c.bg ? `<label class="deco-op"><span class="muted small">사진 진하기</span><input type="range" min="5" max="100" step="5" value="${c.op}" data-change="cal-op" aria-label="배경 사진 진하기"><b>${c.op}%</b></label>` : ''}
-      </div>`;
+    const list = `<div class="deco-list" role="listbox">${CAL_DECOS.map(([k, name, icon]) => `<button class="${c.deco === k ? 'on' : ''}" data-action="cal-deco" data-deco="${k}" role="option" aria-selected="${c.deco === k}"><span class="ic">${icon}</span>${name}${c.deco === k ? '<span class="check">✓</span>' : ''}</button>`).join('')}</div>`;
+    return `<div class="set-row"><span>📅 달력 테마<br><small class="muted">나를 팔로우하는 친구에게도 보여요</small></span>
+        ${pop('deco', `<span>${cur[2]}</span>${cur[1]}`, list)}</div>
+      <button class="set-row" data-action="sticker-mode"><span>🎀 스티커 붙이기</span><span class="muted small">${n ? `${n}개 붙어 있음 ` : ''}<span class="chev">›</span></span></button>
+      <div class="set-row"><span>🖼 달력 배경 사진</span>
+        <span class="row-btns">${c.bg ? '<button class="btn sm ghost" data-action="cal-bg-remove">지우기</button>' : ''}
+          <label class="btn sm outline">${c.bg ? '바꾸기' : '고르기'}<input type="file" accept="image/*" data-change="cal-bg" hidden></label></span></div>
+      ${c.bg ? `<label class="deco-op"><span class="muted small">사진 진하기</span><input type="range" min="5" max="100" step="5" value="${c.op}" data-change="cal-op" aria-label="배경 사진 진하기"><b>${c.op}%</b></label>` : ''}`;
   }
 
   // 스티커 붙이기 판 (오늘 탭 달력 위에 뜸)
@@ -735,6 +742,7 @@
     return `<section class="card sticker-tray">
       <div class="tray-head"><b>🎀 스티커 붙이기</b>
         <span class="muted small grow">고른 다음 달력을 누르면 붙어요 · 끌어서 옮기기 · ✕ 로 떼기</span>
+        ${myCal().stickers.filter(validSticker).length ? '<button class="btn sm ghost" data-action="sticker-clear">모두 떼기</button>' : ''}
         <button class="btn sm primary" data-action="sticker-done">완료</button></div>
       <div class="emoji-tabs">${tabs.map(([k, icon, name]) => `<button type="button" class="${t.tab === k ? 'on' : ''}" data-action="sticker-tab" data-tab="${k}" title="${name}" aria-label="${name}">${icon}</button>`).join('')}</div>
       <div class="emoji-grid scroll tray-grid">${items.map((k) => `<button type="button" class="${t.pick === k ? 'on' : ''}" data-action="sticker-pick" data-s="${esc(k)}">${stickerFace(k)}</button>`).join('')}</div>
@@ -745,14 +753,12 @@
   function renderThemeSettings() {
     const t = loadTheme();
     const cur = t.color || DEFAULT_THEME;
-    const isPreset = THEMES.some(([, c]) => c === cur);
-    return `<div class="theme-row"><span>🎨 테마 색</span>
-        <div class="theme-swatches">
-          ${THEMES.map(([name, c]) => `<button class="${c === cur ? 'on' : ''}" style="background:${c}" title="${name}" aria-label="${name}" data-action="theme" data-color="${c}"></button>`).join('')}
-          <label class="${isPreset ? '' : 'on'}" title="직접 고르기"><input type="color" value="${cur}" data-change="theme-color" aria-label="색 직접 고르기"></label>
-        </div>
-        <div class="theme-preview"><div class="progress"><div style="width:65%"></div></div><span>미리보기</span></div>
-      </div>
+    const preset = THEMES.find(([, c]) => c === cur);
+    const panel = `<div class="swatch-grid">
+        ${THEMES.map(([name, c]) => `<button class="${c === cur ? 'on' : ''}" style="--sw:${c}" data-action="theme" data-color="${c}"><i></i>${name}</button>`).join('')}
+        <label class="${preset ? '' : 'on'}"><i class="rainbow"></i>직접 고르기<input type="color" value="${cur}" data-change="theme-color" aria-label="색 직접 고르기"></label>
+      </div>`;
+    return `<div class="set-row"><span>🎨 테마 색</span>${pop('theme', `<i class="dot" style="background:${cur}"></i>${preset ? preset[0] : '내 색'}`, panel)}</div>
       <label class="set-row"><span>🌗 화면 모드</span>
         <select data-change="theme-mode">
           ${[['auto', '자동 (맥 설정 따라)'], ['light', '밝게'], ['dark', '어둡게']].map(([v, l]) => `<option value="${v}" ${(t.mode || 'auto') === v ? 'selected' : ''}>${l}</option>`).join('')}
@@ -822,8 +828,10 @@
           </div></div>
         <div class="g-members">${members.map((m) => `<span class="g-member" style="--c:${m.color}"><i></i>${m.userId === g.createdBy ? '👑 ' : ''}${esc(m.user.nickname)}${m.userId === me.id ? ' (나)' : ''}${isOwner && m.userId !== me.id ? `<button class="g-kick" data-action="g-kick" data-id="${m.userId}" title="내보내기" aria-label="${esc(m.user.nickname)} 내보내기">✕</button>` : ''}</span>`).join('')}</div>
         <div class="g-mycolor"><span class="label">내 색</span>
-          ${GROUP_COLORS.map((c) => `<button class="${c === myColor ? 'on' : ''}" style="background:${c}" data-action="g-color" data-color="${c}" aria-label="색 ${c}"></button>`).join('')}
-          <label class="${GROUP_COLORS.includes(myColor) ? '' : 'on'}" title="직접 고르기"><input type="color" value="${myColor}" data-change="g-color" aria-label="색 직접 고르기"></label>
+          ${pop('g-color', `<i class="dot" style="background:${myColor}"></i>바꾸기`, `<div class="swatch-grid dots">
+            ${GROUP_COLORS.map((c) => `<button class="${c === myColor ? 'on' : ''}" style="--sw:${c}" data-action="g-color" data-color="${c}" aria-label="색 ${c}"><i></i></button>`).join('')}
+            <label class="${GROUP_COLORS.includes(myColor) ? '' : 'on'}" title="직접 고르기"><i class="rainbow"></i><input type="color" value="${myColor}" data-change="g-color" aria-label="색 직접 고르기"></label>
+          </div>`, 'sm')}
         </div>
       </section>
       <div class="split">
@@ -1072,7 +1080,7 @@
       if (scope === 'profile') Object.assign(st.view, { date: t, month: monthOf(t) });
       else { st.selDate = t; st.calMonth = monthOf(t); }
     },
-    theme({ color }) { saveTheme({ color }); },
+    theme({ color }) { saveTheme({ color }); st.pop = null; },
     'notify-toggle'() {
       const n = loadNotify();
       if (n.on && Notification.permission === 'granted') { turnOffNotify().then(render); return false; }
@@ -1121,7 +1129,7 @@
     'g-date'({ date }) { st.gDate = date; if (date.slice(0, 7) !== st.gMonth) st.gMonth = date.slice(0, 7); },
     'g-month'({ dir }) { st.gMonth = shiftMonth(st.gMonth, +dir); },
     'g-today'() { st.gMonth = S.today().slice(0, 7); st.gDate = S.today(); },
-    'g-color'({ color }) { S.setGroupColor(st.groupId, color); },
+    'g-color'({ color }) { S.setGroupColor(st.groupId, color); st.pop = null; },
     'g-busy-del'({ id }) { S.deleteBusy(id); },
     'g-copy'() {
       const g = S.group(st.groupId); if (!g) return false;
@@ -1168,8 +1176,8 @@
     'edit-profile'() { st.modal = { type: 'profile' }; },
     'avatar-emoji'({ e }) { st.modal.avatar = e; },
     'close-modal'() { st.modal = null; },
-    'cal-deco'({ deco }) { S.saveCalStyle({ deco }); st.decoOpen = false; },
-    'deco-open'() { st.decoOpen = !st.decoOpen; },
+    'cal-deco'({ deco }) { S.saveCalStyle({ deco }); st.pop = null; },
+    pop({ key }) { st.pop = st.pop === key ? null : key; },
     'cal-bg-remove'() { S.saveCalStyle({ bg: '' }); },
     'sticker-mode'() { st.stickerMode = true; st.tab = 'today'; st.view = null; window.scrollTo(0, 0); },
     'sticker-done'() { st.stickerMode = false; },
@@ -1194,7 +1202,7 @@
 
   document.addEventListener('click', (e) => {
     const el = e.target.closest('[data-action]');
-    if (st.decoOpen && !e.target.closest('.deco-select')) { st.decoOpen = false; if (!el) { render(); return; } }
+    if (st.pop && !e.target.closest('.pop-wrap')) { st.pop = null; if (!el) { render(); return; } }
     if (!el) return;
     // 팝업 안쪽 클릭은 바깥(배경) 닫기로 번지지 않게
     if (el.dataset.action === 'close-modal' && el.classList.contains('modal-bg') && e.target.closest('[data-stop]')) return;
