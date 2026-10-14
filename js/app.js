@@ -754,7 +754,7 @@
 
       <h3 class="section-title">위젯</h3>
       <div class="card settings">
-        <button class="set-row" data-action="open-widget"><span>바탕화면 위젯 만들기<br><small class="muted">작은 창으로 달력이나 오늘 할 일을 띄워 두기</small></span><span class="chev">›</span></button>
+        <button class="set-row" data-action="open-widget"><span>바탕화면 위젯 만들기</span><span class="chev">›</span></button>
       </div>
 
       <h3 class="section-title">일정</h3>
@@ -779,8 +779,9 @@
     const n = loadNotify();
     const denied = Notification.permission === 'denied';
     const on = n.on && Notification.permission === 'granted';
-    return `<div class="set-row"><span>데스크톱 알림<br><small class="muted">${denied ? '브라우저에서 알림이 막혀 있어요' : on ? (n.push ? '앱을 꺼도 알림이 와요 (푸시)' : '앱이 켜져 있을 때 알림이 와요') : '꺼져 있어요'}</small></span>
-        <button class="toggle ${on ? 'on' : ''}" data-action="notify-toggle" role="switch" aria-checked="${on}" aria-label="데스크톱 알림"><i></i></button></div>
+    return `<div class="set-row"><span>데스크톱 알림</span>
+        <span class="row-btns"><span class="muted small">${denied ? '차단됨' : on && n.push ? '앱 꺼도 받기' : ''}</span>
+        <button class="toggle ${on ? 'on' : ''}" data-action="notify-toggle" role="switch" aria-checked="${on}" aria-label="데스크톱 알림"><i></i></button></span></div>
       ${on ? `<div class="set-sub">
         <label><input type="checkbox" data-change="notify-reaction" ${n.reaction ? 'checked' : ''}> 공감 이모티콘</label>
         <label><input type="checkbox" data-change="notify-follow" ${n.follow ? 'checked' : ''}> 새 팔로워</label>
@@ -797,7 +798,7 @@
     const n = c.stickers.filter(validSticker).length;
     const cur = CAL_DECOS.find(([k]) => k === c.deco) || CAL_DECOS[0];
     const list = `<div class="deco-list" role="listbox">${CAL_DECOS.map(([k, name, icon]) => `<button class="${c.deco === k ? 'on' : ''}" data-action="cal-deco" data-deco="${k}" role="option" aria-selected="${c.deco === k}"><span class="ic">${icon}</span>${name}${c.deco === k ? '<span class="check">✓</span>' : ''}</button>`).join('')}</div>`;
-    return `<div class="set-row"><span>달력 테마<br><small class="muted">나를 팔로우하는 친구에게도 보여요</small></span>
+    return `<div class="set-row"><span>달력 테마</span>
         ${pop('deco', `<span>${cur[2]}</span>${cur[1]}`, list)}</div>
       <button class="set-row" data-action="sticker-mode"><span>스티커 붙이기</span><span class="muted small">${n ? `${n}개 붙어 있음 ` : ''}<span class="chev">›</span></span></button>
       <div class="set-row"><span>달력 배경 사진</span>
