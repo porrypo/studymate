@@ -151,7 +151,7 @@ input, select { font: inherit; color: inherit; }
 .chip {
   font-size: 10px; line-height: 1.4; padding: 1px 4px; border-radius: 4px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  background: color-mix(in srgb, var(--c) var(--chip-mix), transparent);
+  background: color-mix(in srgb, var(--c) var(--chip-mix), var(--chip-base, transparent));
   border-left: 2.5px solid var(--c);
   color: var(--text); font-weight: 500;
 }
@@ -408,11 +408,25 @@ button.react:active { transform: scale(.92); }
 .emoji-tabs button.on { opacity: 1; background: color-mix(in srgb, var(--theme) 14%, transparent); }
 
 /* ============ 달력 꾸미기 ============ */
-.deco-pick { display: flex; flex-wrap: wrap; gap: 8px; }
-.deco-pick button { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border-radius: 999px; border: 1.5px solid var(--line); font-size: 14px; font-weight: 600; }
-.deco-pick button.on { border-color: var(--theme); background: color-mix(in srgb, var(--theme) 12%, transparent); }
-.deco-bg { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
-.deco-bg > span { margin-right: 4px; }
+/* 테마 고르기: 누르면 목록이 펼쳐짐 */
+.deco-select { position: relative; display: inline-block; }
+.deco-current { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--card); font-size: 14px; font-weight: 600; min-width: 170px; }
+.deco-current .chev { margin-left: auto; color: var(--sub); transition: transform .15s; }
+.deco-select.open .deco-current { border-color: var(--theme); }
+.deco-select.open .deco-current .chev { transform: rotate(180deg); }
+.deco-list {
+  position: absolute; left: 0; top: calc(100% + 6px); z-index: 40; min-width: 220px; max-height: 300px; overflow-y: auto;
+  padding: 6px; border-radius: 14px; background: var(--card); box-shadow: 0 10px 30px rgba(0,0,0,.18), 0 0 0 1px var(--line);
+  animation: pop .14s ease-out;
+}
+.deco-list button { display: flex; align-items: center; gap: 10px; width: 100%; height: 42px; padding: 0 10px; border-radius: 10px; font-size: 14px; font-weight: 600; text-align: left; }
+.deco-list button:hover { background: color-mix(in srgb, var(--line) 60%, transparent); }
+.deco-list button.on { background: color-mix(in srgb, var(--theme) 12%, transparent); }
+.deco-list button .ic { width: 22px; text-align: center; font-size: 17px; }
+.deco-list button .check { margin-left: auto; color: var(--theme); }
+@keyframes pop { from { transform: translateY(-4px) scale(.97); opacity: 0; } }
+.deco-bg { display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.deco-bg > span:first-child { width: 56px; flex: none; }
 .deco-op { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
 .deco-op input { flex: 1; accent-color: var(--theme); }
 .deco-op b { font-size: 13px; min-width: 40px; text-align: right; }
@@ -420,6 +434,8 @@ button.react:active { transform: scale(.92); }
 .calendar { position: relative; isolation: isolate; }
 .calendar > * { position: relative; z-index: 1; }
 /* 배경 사진 (진하기 조절) */
+/* 배경 사진·테마 색이 있어도 일정 칸 색은 그대로 보이게 (일정 칸 바탕을 불투명하게) */
+.calendar[data-bg] { --chip-base: var(--card); }
 .calendar[data-bg]::before {
   content: ''; position: absolute; inset: 0; z-index: 0; border-radius: inherit; pointer-events: none;
   background: var(--cal-bg-img) center / cover no-repeat; opacity: var(--cal-bg-op, .35);
@@ -446,7 +462,7 @@ button.react:active { transform: scale(.92); }
 
 /* 🐰 토끼: 분홍 달력 위로 토끼가 빼꼼 + 당근 */
 .calendar[data-deco="bunny"] {
-  --card: #FFF5F8; --text: #4A3B3B; --sub: #A98A92; --line: #F6DCE4;
+  --card: #FFF5F8; --text: #4A3B3B; --sub: #A98A92; --line: #F6DCE4; --chip-mix: 18%; --chip-base: #fff;
   background: var(--card); color: var(--text);
   margin-top: 56px; border: 2px solid #F6C4D2; box-shadow: 0 6px 0 #F6C4D2;
 }
@@ -459,7 +475,7 @@ button.react:active { transform: scale(.92); }
 
 /* 🐱 고양이: 달력이 고양이 얼굴처럼 (귀 + 발자국) */
 .calendar[data-deco="cat"] {
-  --card: #FFF8EE; --text: #3F3229; --sub: #9A8573; --line: #F1E2CC;
+  --card: #FFF8EE; --text: #3F3229; --sub: #9A8573; --line: #F1E2CC; --chip-mix: 18%; --chip-base: #fff;
   background: var(--card); color: var(--text);
   margin-top: 48px; border: 2.5px solid #E2BE94;
 }
@@ -470,6 +486,9 @@ button.react:active { transform: scale(.92); }
     url('../icons/deco/cat-ears-r.svg') right top / 78px 56px no-repeat,
     url('../icons/deco/paws.svg') right bottom / 70px 40px no-repeat;
 }
+/* 토끼·고양이: 테두리만 테마 색, 날짜 칸은 하얗게 */
+.calendar[data-deco="bunny"] .cal-grid, .calendar[data-deco="cat"] .cal-grid { background: #fff; border-radius: 12px; overflow: hidden; }
+.calendar[data-deco="bunny"] .cal-cell.sel, .calendar[data-deco="cat"] .cal-cell.sel { background: color-mix(in srgb, var(--line) 80%, #fff); }
 .calendar[data-deco="bunny"] .cal-cell.today .num, .calendar[data-deco="cat"] .cal-cell.today .num { color: #fff; }
 
 /* 스티커 */

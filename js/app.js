@@ -638,8 +638,15 @@
   function renderCalSettings() {
     const c = myCal();
     const n = c.stickers.filter(validSticker).length;
+    const cur = CAL_DECOS.find(([k]) => k === c.deco) || CAL_DECOS[0];
     return `<div class="theme-row"><span>📅 달력 꾸미기 <small class="muted">(친구도 내 달력에서 볼 수 있어요)</small></span>
-        <div class="deco-pick">${CAL_DECOS.map(([k, name, icon]) => `<button class="${c.deco === k ? 'on' : ''}" data-action="cal-deco" data-deco="${k}"><span>${icon}</span>${name}</button>`).join('')}</div>
+        <div class="deco-bg">
+          <span class="muted small">테마</span>
+          <div class="deco-select ${st.decoOpen ? 'open' : ''}">
+            <button class="deco-current" data-action="deco-open" aria-expanded="${!!st.decoOpen}"><span>${cur[2]}</span>${cur[1]}<span class="chev">▾</span></button>
+            ${st.decoOpen ? `<div class="deco-list" role="listbox">${CAL_DECOS.map(([k, name, icon]) => `<button class="${c.deco === k ? 'on' : ''}" data-action="cal-deco" data-deco="${k}" role="option" aria-selected="${c.deco === k}"><span class="ic">${icon}</span>${name}${c.deco === k ? '<span class="check">✓</span>' : ''}</button>`).join('')}</div>` : ''}
+          </div>
+        </div>
         <div class="deco-bg">
           <span class="muted small">스티커</span>
           <button class="btn sm outline" data-action="sticker-mode">🎀 스티커 붙이기</button>
@@ -1088,7 +1095,8 @@
     'edit-profile'() { st.modal = { type: 'profile' }; },
     'avatar-emoji'({ e }) { st.modal.avatar = e; },
     'close-modal'() { st.modal = null; },
-    'cal-deco'({ deco }) { S.saveCalStyle({ deco }); },
+    'cal-deco'({ deco }) { S.saveCalStyle({ deco }); st.decoOpen = false; },
+    'deco-open'() { st.decoOpen = !st.decoOpen; },
     'cal-bg-remove'() { S.saveCalStyle({ bg: '' }); },
     'sticker-mode'() { st.stickerMode = true; st.tab = 'today'; st.view = null; window.scrollTo(0, 0); },
     'sticker-done'() { st.stickerMode = false; },
@@ -1113,6 +1121,7 @@
 
   document.addEventListener('click', (e) => {
     const el = e.target.closest('[data-action]');
+    if (st.decoOpen && !e.target.closest('.deco-select')) { st.decoOpen = false; if (!el) { render(); return; } }
     if (!el) return;
     // 팝업 안쪽 클릭은 바깥(배경) 닫기로 번지지 않게
     if (el.dataset.action === 'close-modal' && el.classList.contains('modal-bg') && e.target.closest('[data-stop]')) return;
