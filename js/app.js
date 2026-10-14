@@ -88,8 +88,9 @@
   // 테마는 여기에 한 줄 + style.css 에 .calendar[data-deco="이름"] 규칙만 추가하면 늘어나요
   const CAL_DECOS = [['none', '기본', '📅'], ['simple', '심플', '◻️'],
     ['flower', '봄', '🌸'], ['summer', '여름 숲', '🌲'], ['autumn', '가을', '🍁'], ['winter', '겨울', '⛄'],
-    ['ocean', '바다', '🐳'], ['mint', '민트캔디', '🍬'],
-    ['bunny', '토끼', '🐰'], ['cat', '고양이', '🐱'], ['dog', '멍뭉이', '🐶']];
+    ['ocean', '바다', '🌊'], ['mint', '민트', '🍃'], ['lemon', '레몬트리', '🍋'], ['apple', '사과나무', '🍎'], ['peach', '복숭아', '🍑'],
+    ['hanyang', '한양 블루', '🦁'],
+    ['bunny', '토끼 풀밭', '🐰'], ['cat', '고양이', '🐱'], ['dog', '멍뭉이', '🐶']];
   // 그림 스티커 (icons/stickers/이름.svg). 이모티콘도 스티커로 붙일 수 있어요
   const ART_STICKERS = ['dog-ears', 'dog-desk', 'dog-derp', 'dog-cry', 'dog-zoom', 'bunny', 'cat', 'ribbon', 'star', 'heart', 'cloud'];
   const MAX_STICKERS = 40;
@@ -790,7 +791,7 @@
       ${denied ? `<details class="set-help"><summary>알림 다시 켜는 방법 보기</summary>
         · <b>Safari</b>: 메뉴 Safari → 설정 → 웹사이트 → 알림 → 이 사이트를 '허용'<br>
         · <b>Chrome</b>: 주소창 왼쪽 아이콘 → 사이트 설정 → 알림 '허용'<br>
-        · <b>맥</b>: 시스템 설정 → 알림 → 브라우저(또는 갓생메이트) 알림 켜기</details>` : ''}`;
+        · <b>맥</b>: 시스템 설정 → 알림 → 브라우저 알림 켜기<br>· <b>윈도우</b>: 설정 → 시스템 → 알림 → 브라우저 알림 켜기<br>· <b>폰</b>: 홈 화면에 추가한 갓생메이트의 알림 허용</details>` : ''}`;
   }
 
   function renderCalSettings() {
@@ -837,7 +838,7 @@
     return `<div class="set-row"><span>테마 색</span>${pop('theme', `<i class="dot" style="background:${cur}"></i>${preset ? preset[0] : '내 색'}`, panel)}</div>
       <label class="set-row"><span>화면 모드</span>
         <select data-change="theme-mode">
-          ${[['auto', '자동 (맥 설정 따라)'], ['light', '밝게'], ['dark', '어둡게']].map(([v, l]) => `<option value="${v}" ${(t.mode || 'auto') === v ? 'selected' : ''}>${l}</option>`).join('')}
+          ${[['auto', '자동 (기기 설정 따라)'], ['light', '밝게'], ['dark', '어둡게']].map(([v, l]) => `<option value="${v}" ${(t.mode || 'auto') === v ? 'selected' : ''}>${l}</option>`).join('')}
         </select></label>`;
   }
 
@@ -1092,7 +1093,7 @@
       const groups = emojiGroups();
       inner = `<h2>이모티콘 달기</h2>
       <form data-form="emoji-custom" class="emoji-input">
-        <input name="e" placeholder="이모티콘 직접 입력 (맥: control + command + 스페이스)" autocomplete="off" aria-label="이모티콘 직접 입력">
+        <input name="e" placeholder="이모티콘 직접 입력" autocomplete="off" aria-label="이모티콘 직접 입력">
         <button class="btn sm primary">달기</button>
       </form>
       ${m.error ? `<p class="error">${esc(m.error)}</p>` : ''}
