@@ -471,7 +471,7 @@ button.react:active { transform: scale(.92); }
 .calendar[data-deco="simple"] .cal-cell { border-top: 1px dashed var(--line); }
 .calendar[data-deco="simple"] .cal-week span { letter-spacing: 1px; color: var(--text); }
 
-/* 🌸 꽃 화환: 위쪽에 꽃 덩굴 + 양쪽 모서리 꽃다발 */
+/* 🌸 봄 (꽃 화환): 위쪽에 꽃 덩굴 + 양쪽 모서리 꽃다발 */
 .calendar[data-deco="flower"] {
   margin-top: 22px; padding-top: 30px;
   border: 2px solid #F9C6D3; box-shadow: 0 0 0 5px color-mix(in srgb, #F9C6D3 25%, transparent);
@@ -482,6 +482,46 @@ button.react:active { transform: scale(.92); }
     url('../icons/deco/flower-corner.svg') left top / 120px 76px no-repeat,
     url('../icons/deco/flower-corner-r.svg') right top / 120px 76px no-repeat,
     url('../icons/deco/vine.svg') left 0 top 14px / 80px 32px repeat-x;
+}
+
+/* 🌲 여름 숲: 초록 잎 덩굴 + 나무·버섯 + 해님 */
+.calendar[data-deco="summer"] {
+  margin-top: 22px; padding-top: 30px;
+  border: 2px solid #B9E0B5; box-shadow: 0 0 0 5px color-mix(in srgb, #B9E0B5 28%, transparent);
+}
+.calendar[data-deco="summer"]::after {
+  content: ''; position: absolute; left: -8px; right: -8px; top: -30px; height: 76px; z-index: 2; pointer-events: none;
+  background:
+    url('../icons/deco/forest-corner.svg') left top / 120px 76px no-repeat,
+    url('../icons/deco/forest-corner-r.svg') right top / 120px 76px no-repeat,
+    url('../icons/deco/forest-vine.svg') left 0 top 14px / 80px 32px repeat-x;
+}
+
+/* 🍁 가을: 단풍 덩굴 + 도토리 + 떨어지는 낙엽 */
+.calendar[data-deco="autumn"] {
+  margin-top: 22px; margin-bottom: 30px; padding-top: 40px;
+  border: 2px solid #F2C094; box-shadow: 0 0 0 5px color-mix(in srgb, #F2C094 28%, transparent);
+}
+.calendar[data-deco="autumn"]::after {
+  content: ''; position: absolute; left: -8px; right: -8px; top: -30px; bottom: -30px; z-index: 2; pointer-events: none;
+  background:
+    url('../icons/deco/autumn-corner.svg') left top / 120px 76px no-repeat,
+    url('../icons/deco/autumn-corner-r.svg') right top / 120px 76px no-repeat,
+    url('../icons/deco/autumn-vine.svg') left 0 top 14px / 80px 32px repeat-x,
+    url('../icons/deco/autumn-fall.svg') right 24px bottom / 90px 40px no-repeat;
+}
+
+/* ⛄ 겨울: 달력 위에 쌓인 눈 + 눈송이 + 눈사람 */
+.calendar[data-deco="winter"] {
+  margin-top: 26px; margin-bottom: 30px; padding-top: 28px;
+  border: 2px solid #CFE3F5; box-shadow: 0 0 0 5px color-mix(in srgb, #CFE3F5 30%, transparent);
+}
+.calendar[data-deco="winter"]::after {
+  content: ''; position: absolute; left: 6px; right: 6px; top: -30px; bottom: -34px; z-index: 2; pointer-events: none;
+  background:
+    url('../icons/deco/winter-snowman.svg') right 4px bottom / 56px 67px no-repeat,
+    url('../icons/deco/winter-snow.svg') left 0 top 26px / 80px 20px repeat-x,
+    url('../icons/deco/winter-flakes.svg') left 0 top 0 / 80px 32px repeat-x;
 }
 
 /* 🐰 토끼: 분홍 달력 위로 토끼가 빼꼼 + 당근 */
