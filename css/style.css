@@ -248,8 +248,27 @@ button.react:active { transform: scale(.92); }
   padding: 10px 4px; border-bottom: 1px solid var(--line); border-right: 1px solid var(--line);
   font-size: 12px; font-weight: 700; text-align: center;
 }
-.wk-name[data-action] { cursor: pointer; }
-.wk-name[data-action]:hover span { text-decoration: underline; }
+.wk-who { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.wk-who[data-action] { cursor: pointer; }
+.wk-who[data-action]:hover > span { text-decoration: underline; }
+
+/* 피드: 즐겨찾기 / 전체 */
+.feed-filter { display: flex; align-items: center; gap: 8px; margin: -2px 0 12px; flex-wrap: wrap; }
+.chip-btn { height: 32px; padding: 0 14px; border-radius: 999px; border: 1.5px solid var(--line); font-size: 13px; font-weight: 700; color: var(--sub); background: var(--card); }
+.chip-btn.on { border-color: var(--theme); color: var(--text); background: color-mix(in srgb, var(--theme) 12%, var(--card)); }
+.star-btn { width: 34px; height: 34px; flex: none; border-radius: 50%; font-size: 19px; line-height: 1; color: var(--sub); transition: transform .12s; }
+.star-btn:hover { background: color-mix(in srgb, var(--line) 60%, transparent); }
+.star-btn:active { transform: scale(.85); }
+.star-btn.on { color: #F5B700; }
+.star-btn.sm { width: 24px; height: 24px; font-size: 14px; }
+.feed-card { position: relative; }
+.feed-card > .star-btn { position: absolute; top: 10px; right: 10px; }
+.feed-card .feed-head { padding-right: 30px; }
+.quiet-row { display: flex; align-items: center; gap: 10px; width: 100%; margin-top: 12px; padding: 10px 14px; border-radius: var(--radius); background: var(--card); color: var(--sub); font-size: 13px; font-weight: 600; text-align: left; }
+.quiet-avatars { display: flex; }
+.quiet-avatars > * { margin-left: -6px; box-shadow: 0 0 0 2px var(--card); border-radius: 50%; }
+.quiet-avatars > *:first-child { margin-left: 0; }
+.quiet-toggle { display: block; margin: 12px auto 0; }
 .wk-cell { padding: 6px 4px; border-bottom: 1px solid var(--line); border-left: 1px solid var(--line); display: flex; flex-direction: column; gap: 3px; min-height: 72px; }
 .wk-cell.today { background: color-mix(in srgb, var(--theme) 6%, transparent); }
 .wk-item {

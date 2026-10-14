@@ -16,6 +16,8 @@
     selDate: S.today(),
     calMonth: S.today().slice(0, 7),
     feedMode: 'week',        // today | week
+    feedScope: (() => { try { return localStorage.getItem('studymate_feed_scope') || 'auto'; } catch (e) { return 'auto'; } })(), // fav | all | auto
+    feedShowQuiet: false,    // 일정 없는 친구도 펼쳐 보기
     weekStart: weekStartOf(S.today()),
     friendsTab: 'following', // following | followers
     q: '',
@@ -413,23 +415,63 @@
         <div class="empty-emoji">👀</div><p>아직 팔로우한 친구가 없어요.<br>친구를 팔로우하면 일정이 여기 보여요!</p>
         <button class="btn primary" data-action="tab" data-tab="friends">친구 찾으러 가기</button></div></main>`;
     }
-    return `${header('피드')}<main class="page">${seg}${st.feedMode === 'week' ? renderWeekBoard() : renderTodayFeed()}</main>`;
+    const favCount = feedFriends('fav').length;
+    const scope = feedScopeNow();
+    const filter = `<div class="feed-filter">
+      <button class="chip-btn ${scope === 'fav' ? 'on' : ''}" data-action="feed-scope" data-scope="fav">⭐ 즐겨찾기${favCount ? ` ${favCount}` : ''}</button>
+      <button class="chip-btn ${scope === 'all' ? 'on' : ''}" data-action="feed-scope" data-scope="all">전체 ${S.following(me.id).length}</button>
+      <span class="muted small grow">${scope === 'fav' ? '친구 이름 옆 ☆ 를 눌러 즐겨찾기' : ''}</span>
+    </div>`;
+    const body = scope === 'fav' && !favCount
+      ? `<div class="empty"><div class="empty-emoji">⭐</div><p>아직 즐겨찾기한 친구가 없어요.<br>친구 이름 옆 <b>☆</b> 를 누르면 그 친구만 모아 볼 수 있어요.</p>
+          <button class="btn outline" data-action="feed-scope" data-scope="all">전체 보기</button></div>`
+      : st.feedMode === 'week' ? renderWeekBoard() : renderTodayFeed();
+    return `${header('피드')}<main class="page">${seg}${filter}${body}</main>`;
+  }
+
+  // 피드에 보일 친구: 즐겨찾기만 / 팔로잉 전체
+  function feedFriends(scope = feedScopeNow()) {
+    const list = S.following(S.me().id);
+    return scope === 'fav' ? list.filter((u) => S.isFavorite(u.id)) : list;
+  }
+  // 처음엔 즐겨찾기가 있으면 즐겨찾기, 없으면 전체
+  function feedScopeNow() {
+    if (st.feedScope === 'fav' || st.feedScope === 'all') return st.feedScope;
+    return S.following(S.me().id).some((u) => S.isFavorite(u.id)) ? 'fav' : 'all';
+  }
+  // ☆ 즐겨찾기 버튼 (팔로우한 친구에게만)
+  function favBtn(u, size = '') {
+    if (u.id === S.me().id || !S.isFollowing(S.me().id, u.id)) return '';
+    const on = S.isFavorite(u.id);
+    return `<button class="star-btn ${size} ${on ? 'on' : ''}" data-action="fav" data-id="${u.id}" title="${on ? '즐겨찾기 해제' : '즐겨찾기'}" aria-label="${on ? '즐겨찾기 해제' : '즐겨찾기'}" aria-pressed="${on}">${on ? '★' : '☆'}</button>`;
+  }
+  // 일정 없는 친구는 접어 두는 줄
+  function quietRow(quiet, what) {
+    if (!quiet.length) return '';
+    if (st.feedShowQuiet) return `<button class="link small quiet-toggle" data-action="feed-quiet">${what} 없는 친구 접기 ▴</button>`;
+    return `<button class="quiet-row" data-action="feed-quiet">
+      <span class="quiet-avatars">${quiet.slice(0, 5).map((u) => avatar(u, 24)).join('')}</span>
+      <span>${what} 없는 친구 ${quiet.length}명 더 보기 ▾</span></button>`;
   }
 
   // 친구들 × 7일 표: 누가 언제 뭐 하는지 한눈에
   function renderWeekBoard() {
     const me = S.me();
     const days = Array.from({ length: 7 }, (_, i) => S.addDays(st.weekStart, i));
-    const people = [me, ...S.following(me.id)];
-    need(people.map((u) => u.id), days[0], days[6]);
+    const friends = feedFriends();
+    need([me.id, ...friends.map((u) => u.id)], days[0], days[6]);
     const t0 = S.today();
+    // 이번 주에 보이는 일정이 하나도 없는 친구는 아래로 접어 둠
+    const has = (u) => days.some((d) => S.todosOn(u.id, d).some((t) => S.canSee(me.id, t)));
+    const active = friends.filter(has), quiet = friends.filter((u) => !has(u));
+    const people = [me, ...active, ...(st.feedShowQuiet ? quiet : [])];
     const rows = people.map((u) => {
       const cats = Object.fromEntries(S.categories(u.id).map((c) => [c.id, c]));
       const cells = days.map((date) => {
         const list = S.todosOn(u.id, date).filter((t) => S.canSee(me.id, t)).sort(byTime);
         return `<div class="wk-cell ${date === t0 ? 'today' : ''}">${list.map((t) => `<div class="wk-item ${t.done ? 'done' : ''}" style="--c:${cats[t.categoryId]?.color || '#8E8E93'}">${t.time ? `<b>${esc(t.time)}</b>` : ''}${esc(t.title)}</div>`).join('')}</div>`;
       }).join('');
-      return `<div class="wk-name" ${u.id === me.id ? '' : `data-action="open-profile" data-id="${u.id}"`}>${avatar(u, 30)}<span>${u.id === me.id ? '나' : esc(u.nickname)}</span></div>${cells}`;
+      return `<div class="wk-name ${u.id === me.id ? '' : 'link-row'}"><span class="wk-who" ${u.id === me.id ? '' : `data-action="open-profile" data-id="${u.id}"`}>${avatar(u, 30)}<span>${u.id === me.id ? '나' : esc(u.nickname)}</span></span>${favBtn(u, 'sm')}</div>${cells}`;
     }).join('');
     const end = days[6];
     return `<div class="week-nav">
@@ -443,18 +485,23 @@
         ${days.map((d) => `<div class="wk-day ${d === t0 ? 'today' : ''} ${S.parseDate(d).getDay() === 0 ? 'sun' : ''}">${WEEK[S.parseDate(d).getDay()]} <b>${S.parseDate(d).getDate()}</b></div>`).join('')}
         ${rows}
       </div></div>
+      ${quietRow(quiet, '이번 주 일정')}
       <p class="hint">🔒 나만 보기 일정은 친구에게 보이지 않아요. 이름을 누르면 친구 캘린더로 가요.</p>`;
   }
 
   function renderTodayFeed() {
     const me = S.me();
     const date = S.today();
-    need(S.following(me.id).map((u) => u.id), date, date);
-    const people = S.following(me.id).map((u) => {
+    const friends = feedFriends();
+    need(friends.map((u) => u.id), date, date);
+    const all = friends.map((u) => {
       const todos = S.todosOn(u.id, date).filter((t) => S.canSee(me.id, t)).sort(byTime);
       return { u, todos, done: todos.filter((t) => t.done).length, last: Math.max(0, ...todos.map((t) => t.doneAt || 0)) };
-    }).sort((a, b) => b.last - a.last);
+    }).sort((a, b) => b.last - a.last || b.todos.length - a.todos.length);
+    const people = all.filter((p) => p.todos.length || st.feedShowQuiet);
+    const quiet = all.filter((p) => !p.todos.length).map((p) => p.u);
     return `<p class="page-sub">${fmtDay(date)} · 친구가 끝낸 일에 이모티콘을 남겨보세요</p>
+      ${!people.length && quiet.length && !st.feedShowQuiet ? '<p class="muted center small">오늘은 아직 일정을 올린 친구가 없어요</p>' : ''}
       <div class="feed-grid">${people.map(({ u, todos, done }) => {
         const cats = Object.fromEntries(S.categories(u.id).map((c) => [c.id, c]));
         const pct = todos.length ? Math.round((done / todos.length) * 100) : 0;
@@ -464,9 +511,11 @@
             <div class="grow"><div class="name">${esc(u.nickname)}</div><div class="sub">${todos.length ? `${done}/${todos.length} 완료` : '공개된 일정 없음'}</div></div>
             ${todos.length ? `<div class="ring" style="--p:${pct}"><span>${pct}%</span></div>` : ''}
           </header>
+          ${favBtn(u)}
           <ul class="todos">${todos.map((t) => renderTodo(t, cats[t.categoryId], false, true)).join('')}</ul>
         </article>`;
-      }).join('')}</div>`;
+      }).join('')}</div>
+      ${quietRow(quiet, '오늘 일정')}`;
   }
 
   // ---------- 친구 ----------
@@ -503,7 +552,7 @@
     return `<li class="user-row">
       <div class="user-main" data-action="open-profile" data-id="${u.id}">${avatar(u, 44)}
         <div class="grow"><div class="name">${esc(u.nickname)}</div>${sub ? `<div class="sub">${esc(sub)}</div>` : ''}</div></div>
-      ${followBtn(u)}
+      ${favBtn(u)}${followBtn(u)}
     </li>`;
   }
 
@@ -525,7 +574,7 @@
           ${u.bio ? `<div class="sub">${esc(u.bio)}</div>` : ''}
           <div class="counts"><span><b>${S.followers(u.id).length}</b> 팔로워</span><span><b>${S.following(u.id).length}</b> 팔로잉</span></div>
         </div>
-        ${followBtn(u)}
+        ${favBtn(u)}${followBtn(u)}
       </section>
       <div class="split">
         <div class="col-main">${cal}</div>
@@ -1028,6 +1077,9 @@
     },
     'notify-test'() { showDesktop('갓생메이트', '알림이 잘 와요! 👍', 'test'); return false; },
     'feed-mode'({ mode }) { st.feedMode = mode; },
+    'feed-scope'({ scope }) { st.feedScope = scope; st.feedShowQuiet = false; try { localStorage.setItem('studymate_feed_scope', scope); } catch (e) { /* 무시 */ } },
+    'feed-quiet'() { st.feedShowQuiet = !st.feedShowQuiet; },
+    fav({ id }) { S.toggleFavorite(id); },
 
     // 그룹
     'g-select'({ id }) { st.groupId = id; st.groupForm = null; st.showCode = null; },

@@ -95,7 +95,7 @@
   }
 
   function clearAll() {
-    calStyles = new Map(); calLoading = new Set();
+    calStyles = new Map(); calLoading = new Set(); favs = new Set();
     meId = null; users = new Map(); follows = []; cats = new Map(); todos = new Map(); reactions = []; notifs = [];
     loadedMonths = new Set(); loadedCatUsers = new Set(); loading.clear();
     groupsLoaded = false; groups = new Map(); gMembers = []; gBusy = new Map(); gLoadedMonths = new Set();
@@ -120,19 +120,23 @@
   }
 
   async function loadBase() {
-    const [p, f, n] = await Promise.all([
+    const [p, f, n, fv] = await Promise.all([
       sb.from('profiles').select('*').limit(2000),
       sb.from('follows').select('follower,following').limit(10000),
       sb.from('notifications').select('*').eq('to_user', meId).order('created_at', { ascending: false }).limit(100),
+      sb.from('favorites').select('target').eq('user_id', meId).limit(2000),
     ]);
     users = new Map(must(p).map((r) => [r.id, fromProfile(r)]));
     follows = must(f).map((r) => ({ from: r.follower, to: r.following }));
     notifs = must(n).map(fromNotif);
+    // 즐겨찾기 표가 아직 없어도 앱은 그대로 동작하게
+    if (!fv.error) favs = new Set(fv.data.map((r) => r.target));
     detectNewNotifs();
   }
 
   // ---------- 달력 꾸미기 (서버에 저장 → 친구도 볼 수 있음) ----------
   let calStyles = new Map(), calLoading = new Set(), calTimer = null;
+  let favs = new Set(); // 내가 즐겨찾기한 친구 id
   const CAL_DEFAULT = { deco: 'none', bg: '', op: 35, stickers: [] };
   const fromCalStyle = (r) => ({ deco: r.deco, bg: r.bg, op: r.op, stickers: Array.isArray(r.stickers) ? r.stickers : [] });
 
@@ -394,6 +398,20 @@
     },
 
     // ---------- 팔로우 ----------
+    // ---------- 즐겨찾기 ----------
+    isFavorite(id) { return favs.has(id); },
+    favorites() { return [...favs]; },
+    toggleFavorite(id) {
+      if (!id || id === meId) return;
+      if (favs.has(id)) {
+        favs.delete(id);
+        send(sb.from('favorites').delete().eq('user_id', meId).eq('target', id), '즐겨찾기 해제');
+      } else {
+        favs.add(id);
+        send(sb.from('favorites').insert({ user_id: meId, target: id }), '즐겨찾기');
+      }
+    },
+
     isFollowing(a, b) { return follows.some((f) => f.from === a && f.to === b); },
     follow(b) {
       if (b === meId || S.isFollowing(meId, b)) return;
