@@ -95,6 +95,7 @@
   }
 
   function clearAll() {
+    calStyles = new Map(); calLoading = new Set();
     meId = null; users = new Map(); follows = []; cats = new Map(); todos = new Map(); reactions = []; notifs = [];
     loadedMonths = new Set(); loadedCatUsers = new Set(); loading.clear();
     groupsLoaded = false; groups = new Map(); gMembers = []; gBusy = new Map(); gLoadedMonths = new Set();
@@ -129,6 +130,11 @@
     notifs = must(n).map(fromNotif);
     detectNewNotifs();
   }
+
+  // ---------- 달력 꾸미기 (서버에 저장 → 친구도 볼 수 있음) ----------
+  let calStyles = new Map(), calLoading = new Set(), calTimer = null;
+  const CAL_DEFAULT = { deco: 'none', bg: '', op: 35, stickers: [] };
+  const fromCalStyle = (r) => ({ deco: r.deco, bg: r.bg, op: r.op, stickers: Array.isArray(r.stickers) ? r.stickers : [] });
 
   // key = "userId|YYYY-MM"
   async function fetchMonths(keys) {
@@ -212,6 +218,12 @@
         todos = new Map(got.todos.map((t) => [t.id, t]));
         reactions = got.reactions;
         cats = new Map(gotCats.map((c) => [c.id, c]));
+        // 친구 달력 꾸미기가 바뀌었을 수 있으니 다시 불러옴 (내 것은 내가 바꾸는 중일 수 있어서 제외)
+        const others = [...calStyles.keys()].filter((id) => id !== meId);
+        if (others.length) {
+          const { data } = await sb.from('cal_styles').select('*').in('user_id', others);
+          others.forEach((id) => { const r = (data || []).find((x) => x.user_id === id); calStyles.set(id, r ? fromCalStyle(r) : { ...CAL_DEFAULT, none: true }); });
+        }
         onChange();
       } catch (e) { console.error(e); }
       if (groupsLoaded) {
@@ -401,6 +413,34 @@
     searchUsers(q) {
       q = q.trim().toLowerCase(); if (!q) return [];
       return [...users.values()].filter((u) => u.id !== meId && (u.nickname.toLowerCase().includes(q) || u.username.includes(q)));
+    },
+
+    // ---------- 달력 꾸미기 ----------
+    // 아직 안 불러왔으면 기본값을 주고, 뒤에서 불러온 뒤 화면을 다시 그림
+    calStyle(userId) {
+      if (calStyles.has(userId)) return calStyles.get(userId);
+      if (!calLoading.has(userId)) {
+        calLoading.add(userId);
+        sb.from('cal_styles').select('*').eq('user_id', userId).maybeSingle().then(({ data, error }) => {
+          calLoading.delete(userId);
+          if (error) { console.error(error); return; }
+          calStyles.set(userId, data ? fromCalStyle(data) : { ...CAL_DEFAULT, none: true });
+          onChange();
+        });
+      }
+      return CAL_DEFAULT;
+    },
+    calStyleLoaded(userId) { return calStyles.has(userId); },
+    // 내 꾸미기 바꾸기: 화면엔 바로, 서버엔 잠깐 모았다가 한 번에 저장
+    saveCalStyle(patch) {
+      const cur = { ...CAL_DEFAULT, ...(calStyles.get(meId) || {}), ...patch };
+      delete cur.none;
+      calStyles.set(meId, cur);
+      clearTimeout(calTimer);
+      calTimer = setTimeout(() => {
+        const c = calStyles.get(meId);
+        send(sb.from('cal_styles').upsert({ user_id: meId, deco: c.deco, bg: c.bg, op: c.op, stickers: c.stickers, updated_at: new Date().toISOString() }), '달력 꾸미기 저장');
+      }, 600);
     },
 
     // ---------- 공감 이모티콘 ----------

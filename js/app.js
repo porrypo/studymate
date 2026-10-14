@@ -20,6 +20,8 @@
     friendsTab: 'following', // following | followers
     q: '',
     modal: null,
+    stickerMode: false,      // 오늘 탭에서 스티커 붙이는 중
+    sticker: { tab: 'art', pick: 'a:bunny', size: 2 },
     authMode: 'login',
     authError: '',
     groupId: null,           // 그룹 탭에서 보고 있는 그룹
@@ -67,33 +69,69 @@
   }
   applyTheme();
 
-  // ---------- 달력 꾸미기 (이 브라우저에 저장) ----------
-  // 꾸미기 종류는 여기에 한 줄 + style.css 에 [data-cal-deco="이름"] 규칙만 추가하면 늘어나요
-  const CAL_DECOS = [['none', '기본', '📅'], ['flower', '꽃 화환', '🌸']];
-  const CAL_KEY = 'studymate_cal';
-  function loadCal() {
-    let c = {};
-    try { c = JSON.parse(localStorage.getItem(CAL_KEY)) || {}; } catch (e) { /* 무시 */ }
-    if (!CAL_DECOS.some(([k]) => k === c.deco)) c.deco = 'none';
-    if (typeof c.bg !== 'string' || !/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(c.bg)) delete c.bg;
-    c.op = Math.min(100, Math.max(5, Number(c.op) || 35));
+  // ---------- 달력 꾸미기 (서버에 저장 → 친구가 내 달력을 볼 때도 그대로 보임) ----------
+  // 테마는 여기에 한 줄 + style.css 에 .calendar[data-deco="이름"] 규칙만 추가하면 늘어나요
+  const CAL_DECOS = [['none', '기본', '📅'], ['simple', '심플', '◻️'], ['flower', '꽃 화환', '🌸'], ['bunny', '토끼', '🐰'], ['cat', '고양이', '🐱']];
+  // 그림 스티커 (icons/stickers/이름.svg). 이모티콘도 스티커로 붙일 수 있어요
+  const ART_STICKERS = ['bunny', 'cat', 'ribbon', 'star', 'heart', 'cloud'];
+  const MAX_STICKERS = 40;
+  const validSticker = (k) => k && typeof k.s === 'string' && (ART_STICKERS.includes(k.s.slice(2)) && k.s.startsWith('a:') || S.isEmoji(k.s))
+    && Number.isFinite(k.x) && Number.isFinite(k.y) && [1, 2, 3].includes(k.z);
+  // 배경 사진은 한 번만 이미지로 바꿔 두고 재사용 (매번 큰 글자를 다시 그리지 않게)
+  const bgUrls = new Map();
+  function bgUrl(dataUrl) {
+    if (!bgUrls.has(dataUrl)) {
+      try {
+        const bin = atob(dataUrl.split(',')[1]);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        bgUrls.set(dataUrl, URL.createObjectURL(new Blob([bytes], { type: 'image/jpeg' })));
+      } catch (e) { return ''; }
+    }
+    return bgUrls.get(dataUrl);
+  }
+  // 예전에 이 브라우저에만 저장했던 꾸미기를 서버로 한 번 옮김
+  let calMigrated = false;
+  function migrateLocalCal(c) {
+    if (calMigrated || !c.none) return;
+    calMigrated = true;
+    try {
+      const old = JSON.parse(localStorage.getItem('studymate_cal'));
+      localStorage.removeItem('studymate_cal');
+      if (!old) return;
+      const patch = {};
+      if (CAL_DECOS.some(([k]) => k === old.deco)) patch.deco = old.deco;
+      if (typeof old.bg === 'string' && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(old.bg)) patch.bg = old.bg;
+      if (old.op) patch.op = Math.min(100, Math.max(5, +old.op || 35));
+      if (Object.keys(patch).length) S.saveCalStyle(patch);
+    } catch (e) { /* 무시 */ }
+  }
+  function myCal() {
+    const c = S.calStyle(S.me().id);
+    if (S.calStyleLoaded(S.me().id)) migrateLocalCal(c);
     return c;
   }
-  function applyCal(c = loadCal()) {
-    const root = document.documentElement;
-    if (c.deco !== 'none') root.dataset.calDeco = c.deco; else delete root.dataset.calDeco;
-    if (c.bg) { root.dataset.calBg = ''; root.style.setProperty('--cal-bg-img', `url("${c.bg}")`); }
-    else { delete root.dataset.calBg; root.style.removeProperty('--cal-bg-img'); }
-    root.style.setProperty('--cal-bg-op', c.op / 100);
+  // 달력 하나에 붙일 꾸미기 (테마·배경·스티커)
+  function calDeco(userId, { stickers = true, editing = false } = {}) {
+    const c = userId === S.me().id ? myCal() : S.calStyle(userId);
+    const deco = CAL_DECOS.some(([k]) => k === c.deco) ? c.deco : 'none';
+    const bg = c.bg ? bgUrl(c.bg) : '';
+    const op = Math.min(100, Math.max(5, +c.op || 35)) / 100;
+    const list = stickers ? c.stickers.filter(validSticker) : [];
+    const layer = list.length || editing
+      ? `<div class="sticker-layer ${editing ? 'edit' : ''}">${list.map((k, i) => stickerHtml(k, i, editing)).join('')}</div>` : '';
+    return {
+      attrs: `data-deco="${deco}" data-owner="${esc(userId)}" ${bg ? `data-bg style="--cal-bg-img:url('${bg}');--cal-bg-op:${op}"` : ''}`,
+      layer,
+    };
   }
-  function saveCal(patch) {
-    const c = { ...loadCal(), ...patch };
-    if (!c.bg) delete c.bg;
-    try { localStorage.setItem(CAL_KEY, JSON.stringify(c)); }
-    catch (e) { alert('사진이 너무 커서 저장하지 못했어요. 더 작은 사진을 골라주세요.'); return; }
-    applyCal(c);
+  function stickerFace(key) {
+    return key.startsWith('a:') ? `<img src="icons/stickers/${key.slice(2)}.svg" alt="" draggable="false">` : `<span>${esc(key)}</span>`;
   }
-  applyCal();
+  function stickerHtml(k, i, editing) {
+    const x = Math.min(100, Math.max(0, k.x)), y = Math.min(100, Math.max(0, k.y)), r = Math.min(30, Math.max(-30, +k.r || 0));
+    return `<div class="sticker z${k.z}" data-i="${i}" style="left:${x}%;top:${y}%;--r:${r}deg">${stickerFace(k.s)}${editing ? `<button class="sticker-x" data-action="sticker-del" data-i="${i}" aria-label="스티커 떼기">✕</button>` : ''}</div>`;
+  }
 
   // ---------- 데스크톱 알림 (맥·윈도우 브라우저 알림, 이 브라우저에 설정 저장) ----------
   const NOTIFY_KEY = 'studymate_notify';
@@ -246,7 +284,7 @@
 
   // ---------- 캘린더 (오늘 탭, 친구 프로필에서 같이 씀) ----------
   // sources: [{ userId, color?, tag? }] — color가 있으면 그 색(친구 겹쳐보기), 없으면 카테고리 색
-  function renderCalendar({ scope, month, selDate, sources, top = '' }) {
+  function renderCalendar({ scope, month, selDate, sources, top = '', owner = null, editing = false }) {
     const me = S.me();
     const [y, m] = month.split('-').map(Number);
     const first = new Date(y, m - 1, 1);
@@ -274,10 +312,12 @@
         <span class="num">${d.getDate()}</span>${chips}${list.length > 4 ? `<div class="more">+${list.length - 4}개</div>` : ''}
       </button>`;
     }
-    return `<section class="card calendar">
+    const deco = owner ? calDeco(owner, { editing }) : { attrs: '', layer: '' };
+    return `<section class="card calendar" ${deco.attrs}>
       <div class="cal-head">
         <h3>${y}년 ${m}월</h3>
         <div class="cal-nav">
+          ${scope === 'today' && !editing ? '<button class="icon-btn sm" data-action="sticker-mode" title="달력 꾸미기" aria-label="달력 꾸미기">🎀</button>' : ''}
           <button class="btn sm ghost" data-action="cal-today" data-scope="${scope}">오늘</button>
           <button class="icon-btn sm" data-action="cal-move" data-scope="${scope}" data-dir="-1" aria-label="이전 달">‹</button>
           <button class="icon-btn sm" data-action="cal-move" data-scope="${scope}" data-dir="1" aria-label="다음 달">›</button>
@@ -286,13 +326,14 @@
       ${top}
       <div class="cal-week">${WEEK.map((w) => `<span>${w}</span>`).join('')}</div>
       <div class="cal-grid">${cells}</div>
+      ${deco.layer}
     </section>`;
   }
 
   // ---------- 오늘 탭: 내 캘린더 + 선택한 날 (친구 일정은 친구 페이지에서) ----------
   function renderToday() {
     const me = S.me();
-    const cal = renderCalendar({ scope: 'today', month: st.calMonth, selDate: st.selDate, sources: [{ userId: me.id }] });
+    const cal = (st.stickerMode ? renderStickerTray() : '') + renderCalendar({ scope: 'today', month: st.calMonth, selDate: st.selDate, sources: [{ userId: me.id }], owner: me.id, editing: st.stickerMode });
 
     const todos = S.todosOn(me.id, st.selDate);
     const done = todos.filter((t) => t.done).length;
@@ -474,7 +515,7 @@
     const { date, month } = st.view;
     const todos = S.todosOn(u.id, date).filter((t) => S.canSee(me.id, t));
     const done = todos.filter((t) => t.done).length;
-    const cal = renderCalendar({ scope: 'profile', month, selDate: date, sources: [{ userId: u.id }] });
+    const cal = renderCalendar({ scope: 'profile', month, selDate: date, sources: [{ userId: u.id }], owner: u.id });
     const hiddenHint = !S.isFollowing(me.id, u.id) ? '<p class="hint">팔로우하면 “👥 팔로워만” 공개한 일정도 볼 수 있어요.</p>' : '';
     return `${header(esc(u.nickname), { back: true })}<main class="page">
       <section class="profile-card card">
@@ -595,9 +636,15 @@
   }
 
   function renderCalSettings() {
-    const c = loadCal();
-    return `<div class="theme-row"><span>📅 달력 꾸미기</span>
+    const c = myCal();
+    const n = c.stickers.filter(validSticker).length;
+    return `<div class="theme-row"><span>📅 달력 꾸미기 <small class="muted">(친구도 내 달력에서 볼 수 있어요)</small></span>
         <div class="deco-pick">${CAL_DECOS.map(([k, name, icon]) => `<button class="${c.deco === k ? 'on' : ''}" data-action="cal-deco" data-deco="${k}"><span>${icon}</span>${name}</button>`).join('')}</div>
+        <div class="deco-bg">
+          <span class="muted small">스티커</span>
+          <button class="btn sm outline" data-action="sticker-mode">🎀 스티커 붙이기</button>
+          ${n ? `<button class="btn sm ghost" data-action="sticker-clear">모두 떼기 (${n}개)</button>` : ''}
+        </div>
         <div class="deco-bg">
           <span class="muted small">배경 사진</span>
           <label class="btn sm outline">${c.bg ? '사진 바꾸기' : '사진 고르기'}<input type="file" accept="image/*" data-change="cal-bg" hidden></label>
@@ -605,6 +652,24 @@
         </div>
         ${c.bg ? `<label class="deco-op"><span class="muted small">사진 진하기</span><input type="range" min="5" max="100" step="5" value="${c.op}" data-change="cal-op" aria-label="배경 사진 진하기"><b>${c.op}%</b></label>` : ''}
       </div>`;
+  }
+
+  // 스티커 붙이기 판 (오늘 탭 달력 위에 뜸)
+  function renderStickerTray() {
+    const t = st.sticker;
+    const groups = emojiGroups();
+    const tabs = [['art', '🐰', '그림'], ['recent', '🕘', '최근'], ...groups.map(([icon, name], i) => ['g' + i, icon, name])];
+    const items = t.tab === 'art' ? ART_STICKERS.map((k) => 'a:' + k)
+      : t.tab === 'recent' ? recentEmojis()
+      : groups[+t.tab.slice(1)][2];
+    return `<section class="card sticker-tray">
+      <div class="tray-head"><b>🎀 스티커 붙이기</b>
+        <span class="muted small grow">고른 다음 달력을 누르면 붙어요 · 끌어서 옮기기 · ✕ 로 떼기</span>
+        <button class="btn sm primary" data-action="sticker-done">완료</button></div>
+      <div class="emoji-tabs">${tabs.map(([k, icon, name]) => `<button type="button" class="${t.tab === k ? 'on' : ''}" data-action="sticker-tab" data-tab="${k}" title="${name}" aria-label="${name}">${icon}</button>`).join('')}</div>
+      <div class="emoji-grid scroll tray-grid">${items.map((k) => `<button type="button" class="${t.pick === k ? 'on' : ''}" data-action="sticker-pick" data-s="${esc(k)}">${stickerFace(k)}</button>`).join('')}</div>
+      <div class="tray-size"><span class="muted small">크기</span>${[[1, '작게'], [2, '보통'], [3, '크게']].map(([z, l]) => `<button class="${t.size === z ? 'on' : ''}" data-action="sticker-size" data-z="${z}">${l}</button>`).join('')}</div>
+    </section>`;
   }
 
   function renderThemeSettings() {
@@ -735,7 +800,8 @@
         <span class="num">${d.getDate()}</span>${chips}${list.length > 4 ? `<div class="more">+${list.length - 4}개</div>` : ''}
       </button>`;
     }
-    return `<section class="card calendar g-cal">
+    const deco = calDeco(S.me().id, { stickers: false });
+    return `<section class="card calendar g-cal" ${deco.attrs}>
       <div class="cal-head">
         <h3>${y}년 ${m}월</h3>
         <div class="cal-nav">
@@ -909,7 +975,7 @@
   const actions = {
     'google-login'() { authRun(() => S.loginWithGoogle()); return false; },
     'auth-mode'() { st.authMode = st.authMode === 'login' ? 'signup' : 'login'; st.authError = ''; },
-    tab({ tab }) { st.tab = tab; st.view = null; window.scrollTo(0, 0); },
+    tab({ tab }) { st.tab = tab; st.view = null; st.stickerMode = false; window.scrollTo(0, 0); },
     back() { st.view = null; },
     'open-notifs'() { st.view = { type: 'notifs' }; render(); S.markAllRead(); return false; },
     'open-profile'({ id }) {
@@ -1022,8 +1088,18 @@
     'edit-profile'() { st.modal = { type: 'profile' }; },
     'avatar-emoji'({ e }) { st.modal.avatar = e; },
     'close-modal'() { st.modal = null; },
-    'cal-deco'({ deco }) { saveCal({ deco }); },
-    'cal-bg-remove'() { saveCal({ bg: '' }); },
+    'cal-deco'({ deco }) { S.saveCalStyle({ deco }); },
+    'cal-bg-remove'() { S.saveCalStyle({ bg: '' }); },
+    'sticker-mode'() { st.stickerMode = true; st.tab = 'today'; st.view = null; window.scrollTo(0, 0); },
+    'sticker-done'() { st.stickerMode = false; },
+    'sticker-tab'({ tab }) { st.sticker.tab = tab; },
+    'sticker-pick'({ s }) { st.sticker.pick = s; },
+    'sticker-size'({ z }) { st.sticker.size = +z; },
+    'sticker-del'({ i }) { S.saveCalStyle({ stickers: myCal().stickers.filter(validSticker).filter((_, j) => j !== +i) }); },
+    'sticker-clear'() {
+      if (!confirm('달력에 붙인 스티커를 모두 뗄까요?')) return false;
+      S.saveCalStyle({ stickers: [] });
+    },
     'open-password'() { st.modal = { type: 'password' }; },
     'open-delete-account'() { st.modal = { type: 'delete-account' }; },
     logout() {
@@ -1187,9 +1263,9 @@
     if (k === 'theme-color') { saveTheme({ color: e.target.value }); render(); }
     if (k === 'theme-mode') { saveTheme({ mode: e.target.value }); }
     if (k === 'default-vis') { S.updateProfile({ defaultVis: e.target.value }); }
-    if (k === 'cal-op') { saveCal({ op: +e.target.value }); }
+    if (k === 'cal-op') { S.saveCalStyle({ op: +e.target.value }); }
     if (k === 'cal-bg' && e.target.files[0]) {
-      try { saveCal({ bg: await resizeImage(e.target.files[0], 1200, false) }); render(); }
+      try { S.saveCalStyle({ bg: await resizeImage(e.target.files[0], 1000, false) }); render(); }
       catch { alert('이미지를 불러오지 못했어요.'); }
     }
     if (k === 'avatar-file' && e.target.files[0]) {
@@ -1198,10 +1274,43 @@
     }
   });
 
+  // 스티커: 빈 곳을 누르면 붙이고, 붙은 스티커는 끌어서 옮김
+  document.addEventListener('pointerdown', (e) => {
+    const layer = e.target.closest('.sticker-layer.edit');
+    if (!layer || e.target.closest('.sticker-x')) return;
+    e.preventDefault();
+    const box = layer.getBoundingClientRect();
+    const pos = (ev) => ({ x: Math.round(((ev.clientX - box.left) / box.width) * 1000) / 10, y: Math.round(((ev.clientY - box.top) / box.height) * 1000) / 10 });
+    const list = myCal().stickers.filter(validSticker);
+    const el = e.target.closest('.sticker');
+    if (!el) {
+      if (list.length >= MAX_STICKERS) { alert(`스티커는 ${MAX_STICKERS}개까지 붙일 수 있어요.`); return; }
+      const { x, y } = pos(e);
+      S.saveCalStyle({ stickers: [...list, { s: st.sticker.pick, x, y, z: st.sticker.size, r: Math.round(Math.random() * 20 - 10) }] });
+      render();
+      return;
+    }
+    const i = +el.dataset.i;
+    try { el.setPointerCapture(e.pointerId); } catch (err) { /* 무시 */ }
+    el.classList.add('dragging');
+    let moved = null;
+    const move = (ev) => { moved = pos(ev); el.style.left = Math.min(100, Math.max(0, moved.x)) + '%'; el.style.top = Math.min(100, Math.max(0, moved.y)) + '%'; };
+    const up = () => {
+      el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up);
+      el.classList.remove('dragging');
+      if (moved) {
+        const x = Math.min(100, Math.max(0, moved.x)), y = Math.min(100, Math.max(0, moved.y));
+        S.saveCalStyle({ stickers: list.map((k, j) => (j === i ? { ...k, x, y } : k)) });
+        render();
+      }
+    };
+    el.addEventListener('pointermove', move); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+  });
+
   // 진하기 막대를 움직이는 동안 바로 미리보기
   document.addEventListener('input', (e) => {
     if (e.target.dataset.change !== 'cal-op') return;
-    document.documentElement.style.setProperty('--cal-bg-op', e.target.value / 100);
+    document.querySelectorAll(`.calendar[data-owner="${S.me().id}"]`).forEach((c) => c.style.setProperty('--cal-bg-op', e.target.value / 100));
     const b = e.target.parentElement.querySelector('b'); if (b) b.textContent = e.target.value + '%';
   });
 
@@ -1222,7 +1331,7 @@
             c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
             c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
           }
-          resolve(c.toDataURL('image/jpeg', square ? 0.85 : 0.8));
+          resolve(c.toDataURL('image/jpeg', square ? 0.85 : 0.72));
         };
         img.onerror = reject; img.src = r.result;
       };
