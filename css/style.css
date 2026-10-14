@@ -392,22 +392,50 @@ button.react:active { transform: scale(.92); }
   .cal-cell { min-height: 118px; }
 }
 
-/* ============ 이모티콘 달기 버튼 + 목록 ============ */
-.picker-wrap { position: relative; display: inline-flex; }
+/* ============ 이모티콘 달기 버튼 + 이모티콘 창 ============ */
 .react.add { color: var(--sub); font-size: 15px; border: 1.5px dashed var(--line); background: none; }
 .react.add b { font-size: 12px; }
-.react-picker {
-  position: absolute; left: 0; bottom: calc(100% + 6px); z-index: 30;
-  display: flex; gap: 2px; padding: 6px; border-radius: 16px;
-  background: var(--card); box-shadow: 0 8px 28px rgba(0,0,0,.18), 0 0 0 1px var(--line);
-  animation: pop .14s ease-out;
+.emoji-input { display: flex; gap: 8px; margin-bottom: 6px; }
+.emoji-input input { flex: 1; min-width: 0; }
+.emoji-label { font-size: 12px; font-weight: 600; color: var(--sub); margin: 10px 0 4px; }
+.emoji-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); }
+.emoji-grid button { height: 40px; font-size: 26px; line-height: 1; border-radius: 10px; transition: transform .1s; }
+.emoji-grid button:hover { background: color-mix(in srgb, var(--line) 60%, transparent); transform: scale(1.15); }
+.emoji-grid button.on { background: color-mix(in srgb, var(--theme) 18%, transparent); }
+.emoji-grid.scroll { max-height: 236px; overflow-y: auto; overscroll-behavior: contain; }
+.emoji-tabs { display: flex; gap: 2px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); overflow-x: auto; }
+.emoji-tabs button { flex: 1; min-width: 36px; height: 34px; font-size: 19px; border-radius: 10px; opacity: .55; }
+.emoji-tabs button.on { opacity: 1; background: color-mix(in srgb, var(--theme) 14%, transparent); }
+
+/* ============ 달력 꾸미기 ============ */
+.deco-pick { display: flex; flex-wrap: wrap; gap: 8px; }
+.deco-pick button { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border-radius: 999px; border: 1.5px solid var(--line); font-size: 14px; font-weight: 600; }
+.deco-pick button.on { border-color: var(--theme); background: color-mix(in srgb, var(--theme) 12%, transparent); }
+.deco-bg { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.deco-bg > span { margin-right: 4px; }
+.deco-op { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.deco-op input { flex: 1; accent-color: var(--theme); }
+.deco-op b { font-size: 13px; min-width: 40px; text-align: right; }
+
+.calendar { position: relative; isolation: isolate; }
+.calendar > * { position: relative; z-index: 1; }
+/* 배경 사진 (진하기 조절) */
+[data-cal-bg] .calendar::before {
+  content: ''; position: absolute; inset: 0; z-index: 0; border-radius: inherit; pointer-events: none;
+  background: var(--cal-bg-img) center / cover no-repeat; opacity: var(--cal-bg-op, .35);
 }
-.react-picker button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 6px 4px; border-radius: 10px; min-width: 52px; }
-.react-picker button span { font-size: 24px; line-height: 1; transition: transform .1s; }
-.react-picker button:hover span { transform: scale(1.25); }
-.react-picker button small { font-size: 10px; color: var(--sub); white-space: nowrap; }
-.react-picker button.on { background: color-mix(in srgb, var(--theme) 14%, transparent); }
-@keyframes pop { from { transform: translateY(4px) scale(.9); opacity: 0; } }
+/* 🌸 꽃 화환: 위쪽에 꽃 덩굴 + 양쪽 모서리 꽃다발 */
+[data-cal-deco="flower"] .calendar {
+  margin-top: 22px; padding-top: 30px;
+  border: 2px solid #F9C6D3; box-shadow: 0 0 0 5px color-mix(in srgb, #F9C6D3 25%, transparent);
+}
+[data-cal-deco="flower"] .calendar::after {
+  content: ''; position: absolute; left: -8px; right: -8px; top: -30px; height: 76px; z-index: 2; pointer-events: none;
+  background:
+    url('../icons/deco/flower-corner.svg') left top / 120px 76px no-repeat,
+    url('../icons/deco/flower-corner-r.svg') right top / 120px 76px no-repeat,
+    url('../icons/deco/vine.svg') left 0 top 14px / 80px 32px repeat-x;
+}
 
 /* 캘린더 칸이 좁을 땐 시간 대신 제목을 보여주기 */
 @media (max-width: 1000px) { .chip b { display: none; } }

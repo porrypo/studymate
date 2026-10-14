@@ -20,7 +20,6 @@
     friendsTab: 'following', // following | followers
     q: '',
     modal: null,
-    picker: null,            // 이모티콘 목록이 열린 할 일 id
     authMode: 'login',
     authError: '',
     groupId: null,           // 그룹 탭에서 보고 있는 그룹
@@ -68,6 +67,34 @@
   }
   applyTheme();
 
+  // ---------- 달력 꾸미기 (이 브라우저에 저장) ----------
+  // 꾸미기 종류는 여기에 한 줄 + style.css 에 [data-cal-deco="이름"] 규칙만 추가하면 늘어나요
+  const CAL_DECOS = [['none', '기본', '📅'], ['flower', '꽃 화환', '🌸']];
+  const CAL_KEY = 'studymate_cal';
+  function loadCal() {
+    let c = {};
+    try { c = JSON.parse(localStorage.getItem(CAL_KEY)) || {}; } catch (e) { /* 무시 */ }
+    if (!CAL_DECOS.some(([k]) => k === c.deco)) c.deco = 'none';
+    if (typeof c.bg !== 'string' || !/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(c.bg)) delete c.bg;
+    c.op = Math.min(100, Math.max(5, Number(c.op) || 35));
+    return c;
+  }
+  function applyCal(c = loadCal()) {
+    const root = document.documentElement;
+    if (c.deco !== 'none') root.dataset.calDeco = c.deco; else delete root.dataset.calDeco;
+    if (c.bg) { root.dataset.calBg = ''; root.style.setProperty('--cal-bg-img', `url("${c.bg}")`); }
+    else { delete root.dataset.calBg; root.style.removeProperty('--cal-bg-img'); }
+    root.style.setProperty('--cal-bg-op', c.op / 100);
+  }
+  function saveCal(patch) {
+    const c = { ...loadCal(), ...patch };
+    if (!c.bg) delete c.bg;
+    try { localStorage.setItem(CAL_KEY, JSON.stringify(c)); }
+    catch (e) { alert('사진이 너무 커서 저장하지 못했어요. 더 작은 사진을 골라주세요.'); return; }
+    applyCal(c);
+  }
+  applyCal();
+
   // ---------- 데스크톱 알림 (맥·윈도우 브라우저 알림, 이 브라우저에 설정 저장) ----------
   const NOTIFY_KEY = 'studymate_notify';
   const canNotify = () => 'Notification' in window;
@@ -83,8 +110,7 @@
     const from = S.user(n.fromUserId);
     const name = from ? from.nickname : '친구';
     if (n.type === 'follow') return { title: '새 팔로워', body: `${name}님이 회원님을 팔로우하기 시작했어요.` };
-    const label = S.REACTIONS.find((r) => r.e === n.emoji)?.label || '';
-    return { title: `${n.emoji} ${name}`, body: `${n.todoTitle ? `‘${n.todoTitle}’에 ` : ''}${n.emoji} ${label}를 남겼어요.` };
+    return { title: `${n.emoji} ${name}`, body: `${n.todoTitle ? `‘${n.todoTitle}’에 ` : ''}${n.emoji} 반응을 남겼어요.` };
   }
   function showDesktop(title, body, tag) {
     try {
@@ -309,17 +335,12 @@
     const summary = S.reactionSummary(t.id);
     let reacts = '';
     if (own) {
-      const got = summary.filter((r) => r.count);
-      if (got.length) reacts = `<div class="reacts readonly">${got.map((r) => `<span class="react" title="${esc(r.names.join(', '))}">${r.e}<b>${r.count}</b></span>`).join('')}</div>`;
+      if (summary.length) reacts = `<div class="reacts readonly">${summary.map((r) => `<span class="react" title="${esc(r.names.join(', '))}">${esc(r.e)}<b>${r.count}</b></span>`).join('')}</div>`;
     } else if (t.done) {
-      // 받은 이모티콘만 보여주고, 새로 달 때는 [☺︎+] 버튼 → 이모티콘 목록이 뜸
-      const got = summary.filter((r) => r.count);
-      const picker = st.picker === t.id
-        ? `<div class="react-picker">${summary.map((r) => `<button class="${r.mine ? 'on' : ''}" data-action="react" data-id="${t.id}" data-e="${r.e}"><span>${r.e}</span><small>${r.label}</small></button>`).join('')}</div>`
-        : '';
+      // 받은 이모티콘만 보여주고, 새로 달 때는 [☺︎+] 버튼 → 이모티콘 창이 뜸
       reacts = `<div class="reacts">
-        ${got.map((r) => `<button class="react ${r.mine ? 'on' : ''}" data-action="react" data-id="${t.id}" data-e="${r.e}" title="${r.label} · ${esc(r.names.join(', '))}">${r.e}<b>${r.count}</b></button>`).join('')}
-        <span class="picker-wrap"><button class="react add" data-action="pick-open" data-id="${t.id}" title="이모티콘 달기" aria-label="이모티콘 달기">☺︎<b>+</b></button>${picker}</span>
+        ${summary.map((r) => `<button class="react ${r.mine ? 'on' : ''}" data-action="react" data-id="${t.id}" data-e="${esc(r.e)}" title="${esc(r.names.join(', '))}">${esc(r.e)}<b>${r.count}</b></button>`).join('')}
+        <button class="react add" data-action="emoji-open" data-id="${t.id}" title="이모티콘 달기" aria-label="이모티콘 달기">☺︎<b>+</b></button>
       </div>`;
     }
     const check = own
@@ -487,10 +508,7 @@
         const from = S.user(n.fromUserId); if (!from) return '';
         let text;
         if (n.type === 'follow') text = `<b>${esc(from.nickname)}</b>님이 회원님을 팔로우하기 시작했어요.`;
-        else {
-          const label = S.REACTIONS.find((r) => r.e === n.emoji)?.label || '';
-          text = `<b>${esc(from.nickname)}</b>님이 ${n.todoTitle ? `‘${esc(n.todoTitle)}’에 ` : ''}${n.emoji} ${label}를 남겼어요.`;
-        }
+        else text = `<b>${esc(from.nickname)}</b>님이 ${n.todoTitle ? `‘${esc(n.todoTitle)}’에 ` : ''}${esc(n.emoji)} 반응을 남겼어요.`;
         return `<li class="notif ${n.read ? '' : 'unread'}">
           <div class="user-main" data-action="open-profile" data-id="${from.id}">${avatar(from, 40)}<div class="grow"><div>${text}</div><div class="sub">${timeAgo(n.at)}</div></div></div>
           ${n.type === 'follow' ? followBtn(from) : ''}
@@ -546,6 +564,7 @@
       <div class="card settings">
         ${renderNotifySettings()}
         ${renderThemeSettings()}
+        ${renderCalSettings()}
         <label class="set-row"><span>새 할 일 기본 공개범위</span>
           <select data-change="default-vis">${Object.entries(S.VIS).map(([k, v]) => `<option value="${k}" ${me.defaultVis === k ? 'selected' : ''}>${v.icon} ${v.label}</option>`).join('')}</select></label>
         <button class="set-row" data-action="open-cats"><span>카테고리 관리</span><span class="chev">›</span></button>
@@ -573,6 +592,19 @@
         · <b>Safari</b>: 메뉴 Safari → 설정 → 웹사이트 → 알림 → 이 사이트를 '허용'<br>
         · <b>Chrome</b>: 주소창 왼쪽 아이콘 → 사이트 설정 → 알림 '허용'<br>
         · <b>맥</b>: 시스템 설정 → 알림 → 브라우저(또는 갓생메이트) 알림 켜기</p>` : ''}`;
+  }
+
+  function renderCalSettings() {
+    const c = loadCal();
+    return `<div class="theme-row"><span>📅 달력 꾸미기</span>
+        <div class="deco-pick">${CAL_DECOS.map(([k, name, icon]) => `<button class="${c.deco === k ? 'on' : ''}" data-action="cal-deco" data-deco="${k}"><span>${icon}</span>${name}</button>`).join('')}</div>
+        <div class="deco-bg">
+          <span class="muted small">배경 사진</span>
+          <label class="btn sm outline">${c.bg ? '사진 바꾸기' : '사진 고르기'}<input type="file" accept="image/*" data-change="cal-bg" hidden></label>
+          ${c.bg ? '<button class="btn sm ghost" data-action="cal-bg-remove">지우기</button>' : ''}
+        </div>
+        ${c.bg ? `<label class="deco-op"><span class="muted small">사진 진하기</span><input type="range" min="5" max="100" step="5" value="${c.op}" data-change="cal-op" aria-label="배경 사진 진하기"><b>${c.op}%</b></label>` : ''}
+      </div>`;
   }
 
   function renderThemeSettings() {
@@ -736,6 +768,33 @@
     return `${String(h).padStart(2, '0')}:${String(Number(f.minute.value)).padStart(2, '0')}`;
   }
 
+  // ---------- 이모티콘 창 ----------
+  const RECENT_KEY = 'studymate_recent_emoji';
+  function recentEmojis() {
+    let r = [];
+    try { r = JSON.parse(localStorage.getItem(RECENT_KEY)) || []; } catch (e) { /* 무시 */ }
+    r = r.filter(S.isEmoji);
+    return [...new Set([...r, ...S.REACTIONS])].slice(0, 16);
+  }
+  function rememberEmoji(e) {
+    try { localStorage.setItem(RECENT_KEY, JSON.stringify([e, ...recentEmojis().filter((x) => x !== e)].slice(0, 16))); } catch (err) { /* 무시 */ }
+  }
+  // 이모티콘 목록을 한 글자(이모티콘)씩 나눠 둠 (처음 한 번만)
+  let emojiCache = null;
+  function emojiGroups() {
+    if (emojiCache) return emojiCache;
+    const seg = 'Segmenter' in Intl ? new Intl.Segmenter('ko', { granularity: 'grapheme' }) : null;
+    const split = (s) => (seg ? [...seg.segment(s)].map((x) => x.segment) : [...s]);
+    emojiCache = (window.EMOJI_GROUPS || []).map(([icon, name, list]) => [icon, name, [...new Set(split(list))].filter(S.isEmoji)]);
+    return emojiCache;
+  }
+  function pickEmoji(e) {
+    if (!S.isEmoji(e)) { st.modal.error = '이모티콘 1개만 넣어주세요.'; return; }
+    rememberEmoji(e);
+    S.toggleReaction(st.modal.id, e);
+    st.modal = null;
+  }
+
   // ---------- 팝업(모달) ----------
   function renderModal() {
     const m = st.modal;
@@ -802,6 +861,22 @@
         ${m.error ? `<p class="error">${esc(m.error)}</p>` : ''}
         <div class="modal-actions"><button type="button" class="btn ghost" data-action="close-modal">취소</button><button type="submit" class="btn primary">저장</button></div>
       </form>`;
+    } else if (m.type === 'emoji') {
+      const mine = new Set(S.reactionSummary(m.id).filter((r) => r.mine).map((r) => r.e));
+      const cell = (e) => `<button type="button" class="${mine.has(e) ? 'on' : ''}" data-action="emoji-pick" data-e="${esc(e)}">${esc(e)}</button>`;
+      const groups = emojiGroups();
+      inner = `<h2>이모티콘 달기</h2>
+      <form data-form="emoji-custom" class="emoji-input">
+        <input name="e" placeholder="이모티콘 직접 입력 (맥: control + command + 스페이스)" autocomplete="off" aria-label="이모티콘 직접 입력">
+        <button class="btn sm primary">달기</button>
+      </form>
+      ${m.error ? `<p class="error">${esc(m.error)}</p>` : ''}
+      <div class="emoji-label">최근 사용</div>
+      <div class="emoji-grid recent">${recentEmojis().map(cell).join('')}</div>
+      <div class="emoji-tabs">${groups.map(([icon, name], i) => `<button type="button" class="${m.group === i ? 'on' : ''}" data-action="emoji-group" data-g="${i}" title="${name}" aria-label="${name}">${icon}</button>`).join('')}</div>
+      <div class="emoji-label">${groups[m.group][1]}</div>
+      <div class="emoji-grid scroll">${groups[m.group][2].map(cell).join('')}</div>
+      <p class="muted small">이미 단 이모티콘을 다시 누르면 취소돼요 · 한 할 일에 10개까지</p>`;
     } else if (m.type === 'password') {
       inner = `<h2>비밀번호 바꾸기</h2>
       <form data-form="password">
@@ -925,8 +1000,10 @@
     'edit-todo'({ id }) { st.modal = { type: 'todo', id }; },
     'delete-todo'({ id }) { if (confirm('이 할 일을 삭제할까요?')) { S.deleteTodo(id); st.modal = null; } else return false; },
     tomorrow({ id }) { const t = S.todo(id); S.updateTodo(id, { date: S.addDays(t.date, 1), done: false, doneAt: null }); st.modal = null; },
-    react({ id, e }) { S.toggleReaction(id, e); st.picker = null; },
-    'pick-open'({ id }) { st.picker = st.picker === id ? null : id; },
+    react({ id, e }) { S.toggleReaction(id, e); },
+    'emoji-open'({ id }) { st.modal = { type: 'emoji', id, group: 0 }; },
+    'emoji-group'({ g }) { st.modal.group = +g; },
+    'emoji-pick'({ e }) { pickEmoji(e); },
 
     'friends-tab'({ tab }) { st.friendsTab = tab; st.q = ''; },
     'goto-friends'({ tab }) { st.tab = 'friends'; st.friendsTab = tab; st.q = ''; },
@@ -945,6 +1022,8 @@
     'edit-profile'() { st.modal = { type: 'profile' }; },
     'avatar-emoji'({ e }) { st.modal.avatar = e; },
     'close-modal'() { st.modal = null; },
+    'cal-deco'({ deco }) { saveCal({ deco }); },
+    'cal-bg-remove'() { saveCal({ bg: '' }); },
     'open-password'() { st.modal = { type: 'password' }; },
     'open-delete-account'() { st.modal = { type: 'delete-account' }; },
     logout() {
@@ -958,8 +1037,6 @@
 
   document.addEventListener('click', (e) => {
     const el = e.target.closest('[data-action]');
-    // 이모티콘 목록이 열려 있을 때 바깥을 누르면 닫기
-    if (st.picker && !e.target.closest('.picker-wrap')) { st.picker = null; if (!el) { render(); return; } }
     if (!el) return;
     // 팝업 안쪽 클릭은 바깥(배경) 닫기로 번지지 않게
     if (el.dataset.action === 'close-modal' && el.classList.contains('modal-bg') && e.target.closest('[data-stop]')) return;
@@ -1045,6 +1122,12 @@
       if (st.modal.id) S.updateCategory(st.modal.id, data); else S.addCategory(data);
       st.modal = { type: 'cats' };
     },
+    'emoji-custom'(f) {
+      const v = f.e.value.trim();
+      const seg = 'Segmenter' in Intl ? [...new Intl.Segmenter('ko', { granularity: 'grapheme' }).segment(v)] : [v];
+      if (seg.length !== 1) { st.modal.error = '이모티콘 1개만 넣어주세요.'; return; }
+      pickEmoji(v);
+    },
     password(f) {
       if (f.next.value !== f.next2.value) { st.modal.error = '새 비밀번호가 서로 달라요.'; return; }
       modalRun(async () => {
@@ -1104,23 +1187,42 @@
     if (k === 'theme-color') { saveTheme({ color: e.target.value }); render(); }
     if (k === 'theme-mode') { saveTheme({ mode: e.target.value }); }
     if (k === 'default-vis') { S.updateProfile({ defaultVis: e.target.value }); }
+    if (k === 'cal-op') { saveCal({ op: +e.target.value }); }
+    if (k === 'cal-bg' && e.target.files[0]) {
+      try { saveCal({ bg: await resizeImage(e.target.files[0], 1200, false) }); render(); }
+      catch { alert('이미지를 불러오지 못했어요.'); }
+    }
     if (k === 'avatar-file' && e.target.files[0]) {
       try { st.modal.avatar = await resizeImage(e.target.files[0]); render(); }
       catch { alert('이미지를 불러오지 못했어요.'); }
     }
   });
 
-  // 프로필 사진을 192px 정사각형으로 줄여서 저장
-  function resizeImage(file, size = 192) {
+  // 진하기 막대를 움직이는 동안 바로 미리보기
+  document.addEventListener('input', (e) => {
+    if (e.target.dataset.change !== 'cal-op') return;
+    document.documentElement.style.setProperty('--cal-bg-op', e.target.value / 100);
+    const b = e.target.parentElement.querySelector('b'); if (b) b.textContent = e.target.value + '%';
+  });
+
+  // 프로필 사진: 192px 정사각형 / 달력 배경: 긴 쪽 1200px (자르지 않음)
+  function resizeImage(file, size = 192, square = true) {
     return new Promise((resolve, reject) => {
       const r = new FileReader();
       r.onload = () => {
         const img = new Image();
         img.onload = () => {
-          const c = document.createElement('canvas'); c.width = c.height = size;
-          const s = Math.min(img.width, img.height);
-          c.getContext('2d').drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
-          resolve(c.toDataURL('image/jpeg', 0.85));
+          const c = document.createElement('canvas');
+          if (square) {
+            c.width = c.height = size;
+            const s = Math.min(img.width, img.height);
+            c.getContext('2d').drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
+          } else {
+            const k = Math.min(1, size / Math.max(img.width, img.height));
+            c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+            c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+          }
+          resolve(c.toDataURL('image/jpeg', square ? 0.85 : 0.8));
         };
         img.onerror = reject; img.src = r.result;
       };
@@ -1136,7 +1238,7 @@
   S.init(() => {
     // 30초마다 새 소식이 오면 다시 그림 (단, 뭔가 입력 중일 땐 방해하지 않게 건너뜀)
     const el = document.activeElement;
-    if (st.modal || st.picker || (el && /INPUT|SELECT|TEXTAREA/.test(el.tagName))) return;
+    if (st.modal || (el && /INPUT|SELECT|TEXTAREA/.test(el.tagName))) return;
     render();
   }).then(() => {
     if (S.loginError) st.authError = S.loginError;

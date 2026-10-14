@@ -15,13 +15,11 @@
   const toEmail = (username) => `${username.trim().toLowerCase()}@studymate.local`;
 
   const COLORS = ['#FF3B30', '#FF9500', '#FFCC00', '#34C759', '#30B0C7', '#007AFF', '#5856D6', '#AF52DE', '#FF2D55', '#A2845E', '#8E8E93'];
-  const REACTIONS = [
-    { e: '🔥', label: '대단해' },
-    { e: '👏', label: '수고했어' },
-    { e: '❤️', label: '응원해' },
-    { e: '😂', label: '또 공부하냐' },
-    { e: '😭', label: '고생했어' },
-  ];
+  // 처음 '최근 사용'에 보여줄 기본 이모티콘 (아무 이모티콘이나 달 수 있음)
+  const REACTIONS = ['🔥', '👏', '❤️', '😂', '😭', '👍', '🥹', '💯'];
+  // 이모티콘 1개인지 확인 (글자·숫자·기호는 안 됨)
+  const isEmoji = (s) => typeof s === 'string' && s.length <= 16 && /\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(s) && !/[\x00-\x7F]/.test(s);
+  const MAX_REACTIONS = 10; // 한 사람이 한 할 일에 달 수 있는 이모티콘 수
   const VIS = {
     public: { icon: '🌎', label: '전체 공개' },
     followers: { icon: '👥', label: '팔로워만' },
@@ -151,7 +149,7 @@
   }
 
   const S = {
-    COLORS, REACTIONS, VIS, today, fmtDate, parseDate, addDays, safeColor,
+    COLORS, REACTIONS, VIS, isEmoji, today, fmtDate, parseDate, addDays, safeColor,
     ready: false,
 
     // 처음 열 때: 로그인 상태면 데이터 불러오기
@@ -408,9 +406,11 @@
     // ---------- 공감 이모티콘 ----------
     reactionSummary(todoId) {
       const list = reactions.filter((r) => r.todoId === todoId);
-      return REACTIONS.map((R) => {
-        const rs = list.filter((r) => r.emoji === R.e);
-        return { ...R, count: rs.length, mine: rs.some((r) => r.userId === meId), names: rs.map((r) => users.get(r.userId)?.nickname).filter(Boolean) };
+      // 먼저 달린 이모티콘부터 순서대로
+      const order = [...new Set([...list].sort((a, b) => a.at - b.at).map((r) => r.emoji))];
+      return order.map((e) => {
+        const rs = list.filter((r) => r.emoji === e);
+        return { e, count: rs.length, mine: rs.some((r) => r.userId === meId), names: rs.map((r) => users.get(r.userId)?.nickname).filter(Boolean) };
       });
     },
     toggleReaction(todoId, emoji) {
@@ -419,6 +419,8 @@
         reactions = reactions.filter((r) => r !== ex);
         send(sb.from('reactions').delete().eq('todo_id', todoId).eq('user_id', meId).eq('emoji', emoji), '이모티콘 취소');
       } else {
+        if (!isEmoji(emoji)) { alert('이모티콘만 달 수 있어요.'); return; }
+        if (reactions.filter((r) => r.todoId === todoId && r.userId === meId).length >= MAX_REACTIONS) { alert(`한 할 일에 이모티콘은 ${MAX_REACTIONS}개까지 달 수 있어요.`); return; }
         reactions.push({ todoId, userId: meId, emoji, at: Date.now() });
         send(sb.from('reactions').insert({ todo_id: todoId, user_id: meId, emoji }), '이모티콘');
       }
