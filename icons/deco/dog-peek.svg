@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="84" viewBox="0 0 120 84">
+  <g stroke="#1d1d1d" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="#fff">
+    <!-- 머리 -->
+    <path d="M30 80 C24 58 26 30 46 22 C60 16 78 18 88 30 C98 42 96 64 92 80"/>
+    <!-- 귀 (축 늘어짐, 한쪽은 뒤집힘) -->
+    <path d="M38 28 C26 26 16 36 18 52 C19 58 26 58 30 50 C32 44 34 36 40 32"/>
+    <path d="M84 26 C92 14 106 14 108 24 C109 30 100 34 92 36"/>
+    <!-- 앞발 (모서리를 꽉 잡음) -->
+    <path d="M26 84 C24 74 30 70 38 72 C44 74 44 80 42 84"/>
+    <path d="M80 84 C78 74 86 70 92 72 C98 74 98 80 96 84"/>
+  </g>
+  <g stroke="#1d1d1d" stroke-width="2.2" stroke-linecap="round" fill="none">
+    <!-- 왼쪽 눈: 빙글빙글 -->
+    <path d="M50 46 m0 0 a2 2 0 1 1 2 2 a4 4 0 1 1 -4 -5 a6 6 0 1 1 7 7"/>
+    <!-- 발가락 -->
+    <path d="M32 78 v4 M36 78 v4 M86 78 v4 M90 78 v4"/>
+    <!-- 입: 헤벌레 -->
+    <path d="M56 60 C60 64 66 64 70 58"/>
+    <!-- 땀 -->
+    <path d="M94 40 c3 4 3 8 0 9 c-3 -1 -3 -5 0 -9z" fill="#BFE3FF"/>
+  </g>
+  <!-- 오른쪽 눈: 작은 점 (짝짝이) -->
+  <circle cx="76" cy="44" r="2.6" fill="#1d1d1d"/>
+  <!-- 코 -->
+  <ellipse cx="63" cy="54" rx="4" ry="3" fill="#1d1d1d"/>
+  <!-- 혀 (옆으로 삐져나옴) -->
+  <path d="M64 61 C64 70 70 74 74 70 C76 66 72 62 70 60Z" fill="#FF9CB3" stroke="#1d1d1d" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M69 63 L71 68" stroke="#E5768F" stroke-width="1.4" stroke-linecap="round"/>
+  <!-- 볼 -->
+  <ellipse cx="45" cy="58" rx="5" ry="3" fill="#FFC2D1" opacity=".8"/>
+</svg>
