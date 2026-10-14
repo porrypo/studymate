@@ -380,6 +380,7 @@
       return t;
     },
     updateTodo(id, patch) {
+      if (!todos.has(id)) return; // 다른 기기에서 이미 지운 할 일
       Object.assign(todos.get(id), patch);
       send(sb.from('todos').update(todoPatch(patch)).eq('id', id), '할 일 저장');
     },
@@ -442,7 +443,7 @@
         sb.from('cal_styles').select('*').eq('user_id', userId).maybeSingle().then(({ data, error }) => {
           calLoading.delete(userId);
           if (error) { console.error(error); return; }
-          calStyles.set(userId, data ? fromCalStyle(data) : { ...CAL_DEFAULT, none: true });
+          if (!calStyles.has(userId)) calStyles.set(userId, data ? fromCalStyle(data) : { ...CAL_DEFAULT, none: true });
           onChange();
         });
       }
@@ -450,7 +451,12 @@
     },
     calStyleLoaded(userId) { return calStyles.has(userId); },
     // 내 꾸미기 바꾸기: 화면엔 바로, 서버엔 잠깐 모았다가 한 번에 저장
-    saveCalStyle(patch) {
+    async saveCalStyle(patch) {
+      if (!calStyles.has(meId)) {
+        const { data, error } = await sb.from('cal_styles').select('*').eq('user_id', meId).maybeSingle();
+        if (error) { alert('달력 꾸미기를 불러오지 못했어요. 잠시 후 다시 해 주세요.'); return; }
+        if (!calStyles.has(meId)) calStyles.set(meId, data ? fromCalStyle(data) : { ...CAL_DEFAULT });
+      }
       const cur = { ...CAL_DEFAULT, ...(calStyles.get(meId) || {}), ...patch };
       delete cur.none;
       calStyles.set(meId, cur);
@@ -459,6 +465,7 @@
         const c = calStyles.get(meId);
         send(sb.from('cal_styles').upsert({ user_id: meId, deco: c.deco, bg: c.bg, op: c.op, stickers: c.stickers, updated_at: new Date().toISOString() }), '달력 꾸미기 저장');
       }, 600);
+      onChange();
     },
 
     // ---------- 공감 이모티콘 ----------

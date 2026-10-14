@@ -33,6 +33,9 @@
     showCode: null,          // 초대 코드를 보여주는 그룹 id (평소엔 숨김)
   };
 
+  // 다른 계정으로 바뀔 때 비워 둘 화면 상태
+  const FRESH = { stickerMode: false, decoOpen: false, feedShowQuiet: false, groupId: null, showCode: null, groupForm: null, q: '' };
+
   // ---------- 작은 도우미 ----------
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const fmtDay = (date) => { const d = S.parseDate(date); return `${d.getMonth() + 1}월 ${d.getDate()}일 ${WEEK[d.getDay()]}요일`; };
@@ -688,7 +691,7 @@
     const c = myCal();
     const n = c.stickers.filter(validSticker).length;
     const cur = CAL_DECOS.find(([k]) => k === c.deco) || CAL_DECOS[0];
-    return `<div class="theme-row"><span>📅 달력 꾸미기 <small class="muted">(친구도 내 달력에서 볼 수 있어요)</small></span>
+    return `<div class="theme-row"><span>📅 달력 꾸미기 <small class="muted">(나를 팔로우하는 친구에게 보여요)</small></span>
         <div class="deco-bg">
           <span class="muted small">테마</span>
           <div class="deco-select ${st.decoOpen ? 'open' : ''}">
@@ -753,8 +756,13 @@
 
   function renderGroup() {
     if (!S.groupsReady()) {
-      S.ensureGroups().then((ok) => ok && render());
-      return `${header('그룹')}<main class="page"><p class="muted center">불러오는 중…</p></main>`;
+      if (!st.groupLoading) {
+        st.groupLoading = true; st.groupFailed = false;
+        S.ensureGroups().then((ok) => { st.groupLoading = false; st.groupFailed = !ok && !S.groupsReady(); render(); });
+      }
+      return `${header('그룹')}<main class="page">${st.groupFailed
+        ? '<div class="empty"><p>그룹을 불러오지 못했어요. 인터넷 연결을 확인해 주세요.</p><button class="btn outline" data-action="g-retry">다시 시도</button></div>'
+        : '<p class="muted center">불러오는 중…</p>'}</main>`;
     }
     const list = S.groups();
     if (st.groupId && !S.group(st.groupId)) st.groupId = null;
@@ -1082,6 +1090,7 @@
     fav({ id }) { S.toggleFavorite(id); },
 
     // 그룹
+    'g-retry'() { st.groupFailed = false; },
     'g-select'({ id }) { st.groupId = id; st.groupForm = null; st.showCode = null; },
     'g-code-show'() { st.showCode = st.groupId; },
     'g-code-hide'() { st.showCode = null; },
@@ -1124,7 +1133,7 @@
     toggle({ id }) { S.toggleTodo(id); },
     'edit-todo'({ id }) { st.modal = { type: 'todo', id }; },
     'delete-todo'({ id }) { if (confirm('이 할 일을 삭제할까요?')) { S.deleteTodo(id); st.modal = null; } else return false; },
-    tomorrow({ id }) { const t = S.todo(id); S.updateTodo(id, { date: S.addDays(t.date, 1), done: false, doneAt: null }); st.modal = null; },
+    tomorrow({ id }) { const t = S.todo(id); if (t) S.updateTodo(id, { date: S.addDays(t.date, 1), done: false, doneAt: null }); st.modal = null; },
     react({ id, e }) { S.toggleReaction(id, e); },
     'emoji-open'({ id }) { st.modal = { type: 'emoji', id, group: 0 }; },
     'emoji-group'({ g }) { st.modal.group = +g; },
@@ -1164,7 +1173,7 @@
     'open-delete-account'() { st.modal = { type: 'delete-account' }; },
     logout() {
       if (!confirm('로그아웃할까요?')) return false;
-      Object.assign(st, { tab: 'today', view: null, modal: null, authMode: 'login', authError: '', hasPw: undefined });
+      Object.assign(st, { tab: 'today', view: null, modal: null, authMode: 'login', authError: '', hasPw: undefined, ...FRESH });
       // 로그아웃하면 이 기기로 오던 푸시도 끊음 (다음 사람이 내 알림을 받지 않게)
       turnOffNotify().finally(() => S.logout().then(render));
       return false;
@@ -1280,7 +1289,7 @@
       modalRun(async () => {
         await S.deleteAccount(pw);
         await turnOffNotify().catch(() => {}); // 이 기기 푸시 등록도 정리
-        Object.assign(st, { tab: 'today', view: null, modal: null, authMode: 'login', authError: '', hasPw: undefined, groupId: null });
+        Object.assign(st, { tab: 'today', view: null, modal: null, authMode: 'login', authError: '', hasPw: undefined, ...FRESH });
         alert('탈퇴가 완료됐어요. 그동안 고마웠어요!');
       });
       return false;
@@ -1339,6 +1348,7 @@
   document.addEventListener('pointerdown', (e) => {
     const layer = e.target.closest('.sticker-layer.edit');
     if (!layer || e.target.closest('.sticker-x')) return;
+    if (!S.calStyleLoaded(S.me().id)) return; // 내 꾸미기를 다 불러온 뒤에만 (기존 스티커가 날아가지 않게)
     e.preventDefault();
     const box = layer.getBoundingClientRect();
     const pos = (ev) => ({ x: Math.round(((ev.clientX - box.left) / box.width) * 1000) / 10, y: Math.round(((ev.clientY - box.top) / box.height) * 1000) / 10 });
