@@ -370,7 +370,7 @@
           <div class="progress"><div style="width:${todos.length ? Math.round((done / todos.length) * 100) : 0}%"></div></div>
         </div>
         ${S.categories(me.id).map((c) => renderCategory(c, todos.filter((t) => t.categoryId === c.id), { own: true })).join('')}
-        <button class="btn ghost full" data-action="open-cats">⚙︎ 카테고리 관리</button>
+        <button class="btn ghost full" data-action="open-cats">카테고리 관리</button>
       </div>
     </main>`;
   }
@@ -434,7 +434,7 @@
     const favCount = feedFriends('fav').length;
     const scope = feedScopeNow();
     const filter = `<div class="feed-filter">
-      <button class="chip-btn ${scope === 'fav' ? 'on' : ''}" data-action="feed-scope" data-scope="fav">⭐ 즐겨찾기${favCount ? ` ${favCount}` : ''}</button>
+      <button class="chip-btn ${scope === 'fav' ? 'on' : ''}" data-action="feed-scope" data-scope="fav">즐겨찾기${favCount ? ` ${favCount}` : ''}</button>
       <button class="chip-btn ${scope === 'all' ? 'on' : ''}" data-action="feed-scope" data-scope="all">전체 ${S.following(me.id).length}</button>
       <span class="muted small grow">${scope === 'fav' ? '친구 이름 옆 ☆ 를 눌러 즐겨찾기' : ''}</span>
     </div>`;
@@ -509,7 +509,7 @@
         ${rows}
       </div></div>
       ${quietRow(quiet, '이번 주 일정')}
-      <p class="hint">🔒 나만 보기 일정은 친구에게 보이지 않아요. 이름을 누르면 친구 캘린더로 가요.</p>`;
+      <p class="hint">나만 보기 일정은 친구에게 보이지 않아요. 이름을 누르면 친구 캘린더로 가요.</p>`;
   }
 
   function renderTodayFeed() {
@@ -654,10 +654,10 @@
 
       <h3 class="section-title">통계</h3>
       <div class="stat-grid">
-        <div class="card stat"><div class="label">🔥 연속 달성</div><div class="big-num">${s.streak}<span>일</span></div></div>
-        <div class="card stat"><div class="label">✅ 이번 주 달성률</div><div class="big-num">${s.weekRate}<span>%</span></div></div>
-        <div class="card stat"><div class="label">💌 받은 공감 (30일)</div><div class="big-num">${s.cheers}<span>개</span></div></div>
-        <div class="card stat"><div class="label">🏆 완료 (30일)</div><div class="big-num">${s.totalDone}<span>개</span></div></div>
+        <div class="card stat"><div class="label">연속 달성</div><div class="big-num">${s.streak}<span>일</span></div></div>
+        <div class="card stat"><div class="label">이번 주 달성률</div><div class="big-num">${s.weekRate}<span>%</span></div></div>
+        <div class="card stat"><div class="label">받은 공감 (30일)</div><div class="big-num">${s.cheers}<span>개</span></div></div>
+        <div class="card stat"><div class="label">완료 (30일)</div><div class="big-num">${s.totalDone}<span>개</span></div></div>
       </div>
 
       <div class="card">
@@ -700,11 +700,11 @@
   }
 
   function renderNotifySettings() {
-    if (!canNotify()) return '<div class="set-row"><span>🔔 데스크톱 알림</span><span class="muted small">이 브라우저는 알림을 지원하지 않아요</span></div>';
+    if (!canNotify()) return '<div class="set-row"><span>데스크톱 알림</span><span class="muted small">이 브라우저는 알림을 지원하지 않아요</span></div>';
     const n = loadNotify();
     const denied = Notification.permission === 'denied';
     const on = n.on && Notification.permission === 'granted';
-    return `<div class="set-row"><span>🔔 데스크톱 알림<br><small class="muted">${denied ? '브라우저에서 알림이 막혀 있어요' : on ? (n.push ? '앱을 꺼도 알림이 와요 (푸시)' : '앱이 켜져 있을 때 알림이 와요') : '꺼져 있어요'}</small></span>
+    return `<div class="set-row"><span>데스크톱 알림<br><small class="muted">${denied ? '브라우저에서 알림이 막혀 있어요' : on ? (n.push ? '앱을 꺼도 알림이 와요 (푸시)' : '앱이 켜져 있을 때 알림이 와요') : '꺼져 있어요'}</small></span>
         <button class="toggle ${on ? 'on' : ''}" data-action="notify-toggle" role="switch" aria-checked="${on}" aria-label="데스크톱 알림"><i></i></button></div>
       ${on ? `<div class="set-sub">
         <label><input type="checkbox" data-change="notify-reaction" ${n.reaction ? 'checked' : ''}> 공감 이모티콘</label>
@@ -722,10 +722,10 @@
     const n = c.stickers.filter(validSticker).length;
     const cur = CAL_DECOS.find(([k]) => k === c.deco) || CAL_DECOS[0];
     const list = `<div class="deco-list" role="listbox">${CAL_DECOS.map(([k, name, icon]) => `<button class="${c.deco === k ? 'on' : ''}" data-action="cal-deco" data-deco="${k}" role="option" aria-selected="${c.deco === k}"><span class="ic">${icon}</span>${name}${c.deco === k ? '<span class="check">✓</span>' : ''}</button>`).join('')}</div>`;
-    return `<div class="set-row"><span>📅 달력 테마<br><small class="muted">나를 팔로우하는 친구에게도 보여요</small></span>
+    return `<div class="set-row"><span>달력 테마<br><small class="muted">나를 팔로우하는 친구에게도 보여요</small></span>
         ${pop('deco', `<span>${cur[2]}</span>${cur[1]}`, list)}</div>
-      <button class="set-row" data-action="sticker-mode"><span>🎀 스티커 붙이기</span><span class="muted small">${n ? `${n}개 붙어 있음 ` : ''}<span class="chev">›</span></span></button>
-      <div class="set-row"><span>🖼 달력 배경 사진</span>
+      <button class="set-row" data-action="sticker-mode"><span>스티커 붙이기</span><span class="muted small">${n ? `${n}개 붙어 있음 ` : ''}<span class="chev">›</span></span></button>
+      <div class="set-row"><span>달력 배경 사진</span>
         <span class="row-btns">${c.bg ? '<button class="btn sm ghost" data-action="cal-bg-remove">지우기</button>' : ''}
           <label class="btn sm outline">${c.bg ? '바꾸기' : '고르기'}<input type="file" accept="image/*" data-change="cal-bg" hidden></label></span></div>
       ${c.bg ? `<label class="deco-op"><span class="muted small">사진 진하기</span><input type="range" min="5" max="100" step="5" value="${c.op}" data-change="cal-op" aria-label="배경 사진 진하기"><b>${c.op}%</b></label>` : ''}`;
@@ -740,7 +740,7 @@
       : t.tab === 'recent' ? recentEmojis()
       : groups[+t.tab.slice(1)][2];
     return `<section class="card sticker-tray">
-      <div class="tray-head"><b>🎀 스티커 붙이기</b>
+      <div class="tray-head"><b>스티커 붙이기</b>
         <span class="muted small grow">고른 다음 달력을 누르면 붙어요 · 끌어서 옮기기 · ✕ 로 떼기</span>
         ${myCal().stickers.filter(validSticker).length ? '<button class="btn sm ghost" data-action="sticker-clear">모두 떼기</button>' : ''}
         <button class="btn sm primary" data-action="sticker-done">완료</button></div>
@@ -758,8 +758,8 @@
         ${THEMES.map(([name, c]) => `<button class="${c === cur ? 'on' : ''}" style="--sw:${c}" data-action="theme" data-color="${c}"><i></i>${name}</button>`).join('')}
         <label class="${preset ? '' : 'on'}"><i class="rainbow"></i>직접 고르기<input type="color" value="${cur}" data-change="theme-color" aria-label="색 직접 고르기"></label>
       </div>`;
-    return `<div class="set-row"><span>🎨 테마 색</span>${pop('theme', `<i class="dot" style="background:${cur}"></i>${preset ? preset[0] : '내 색'}`, panel)}</div>
-      <label class="set-row"><span>🌗 화면 모드</span>
+    return `<div class="set-row"><span>테마 색</span>${pop('theme', `<i class="dot" style="background:${cur}"></i>${preset ? preset[0] : '내 색'}`, panel)}</div>
+      <label class="set-row"><span>화면 모드</span>
         <select data-change="theme-mode">
           ${[['auto', '자동 (맥 설정 따라)'], ['light', '밝게'], ['dark', '어둡게']].map(([v, l]) => `<option value="${v}" ${(t.mode || 'auto') === v ? 'selected' : ''}>${l}</option>`).join('')}
         </select></label>`;
@@ -789,7 +789,7 @@
     const chips = `<div class="g-chips">
       ${list.map((x) => `<button class="g-chip ${x.id === st.groupId ? 'on' : ''}" data-action="g-select" data-id="${x.id}">${esc(x.name)}</button>`).join('')}
       <button class="g-chip add" data-action="g-form" data-form="create">+ 새 그룹</button>
-      <button class="g-chip add" data-action="g-form" data-form="join">🔑 코드로 참여</button>
+      <button class="g-chip add" data-action="g-form" data-form="join">코드로 참여</button>
     </div>`;
     const form = st.groupForm === 'create'
       ? `<form class="card g-form" data-form="g-create"><b>새 그룹 만들기</b>
@@ -806,7 +806,7 @@
         <div class="empty-emoji">🤝</div>
         <p>친구들과 일정을 공유하는 방이에요.<br>각자 일정을 달력에 적으면, <b>비어 있는 날</b>에 만나면 돼요.</p>
         <button class="btn primary" data-action="g-form" data-form="create">+ 그룹 만들기</button>
-        <button class="btn ghost" data-action="g-form" data-form="join">🔑 코드로 참여</button></div>`}</main>`;
+        <button class="btn ghost" data-action="g-form" data-form="join">코드로 참여</button></div>`}</main>`;
     }
 
     const me = S.me();
@@ -823,7 +823,7 @@
             ${st.showCode === g.id
               ? `<button class="g-code" data-action="g-copy" title="눌러서 복사">초대 코드 <b>${esc(g.code)}</b> 📋</button>
                  <button class="link small" data-action="g-code-hide">숨기기</button>`
-              : '<button class="g-code" data-action="g-code-show">🔒 초대 코드 보기</button>'}
+              : '<button class="g-code" data-action="g-code-show">초대 코드 보기</button>'}
             ${isOwner ? '<button class="link small" data-action="g-code-new">코드 바꾸기</button>' : ''}
           </div></div>
         <div class="g-members">${members.map((m) => `<span class="g-member" style="--c:${m.color}"><i></i>${m.userId === g.createdBy ? '👑 ' : ''}${esc(m.user.nickname)}${m.userId === me.id ? ' (나)' : ''}${isOwner && m.userId !== me.id ? `<button class="g-kick" data-action="g-kick" data-id="${m.userId}" title="내보내기" aria-label="${esc(m.user.nickname)} 내보내기">✕</button>` : ''}</span>`).join('')}</div>
@@ -986,7 +986,7 @@
         <div class="field"><span>색상</span><div class="swatches">${S.COLORS.map((col) => `<label><input type="radio" name="color" value="${col}" ${c.color === col ? 'checked' : ''}><span style="background:${col}"></span></label>`).join('')}
           <label class="custom-color" title="직접 고르기"><input type="radio" name="color" value="custom" ${S.COLORS.includes(c.color) ? '' : 'checked'}><span style="--pick:${S.COLORS.includes(c.color) ? 'transparent' : c.color}"></span>
             <input type="color" name="customColor" value="${S.COLORS.includes(c.color) ? '#4F8EF7' : c.color}" data-change="custom-color"></label>
-        </div><small class="muted">🌈 마지막 동그라미를 누르면 원하는 색을 직접 고를 수 있어요</small></div>
+        </div><small class="muted">마지막 동그라미를 누르면 원하는 색을 직접 고를 수 있어요</small></div>
         <div class="modal-actions">
           ${m.id ? `<button type="button" class="btn danger-ghost" data-action="delete-cat" data-id="${m.id}">삭제</button>` : ''}
           <button type="button" class="btn ghost" data-action="open-cats">취소</button>
