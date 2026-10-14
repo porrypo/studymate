@@ -486,7 +486,7 @@ button.react:active { transform: scale(.92); }
     url('../icons/deco/cat-ears-r.svg') right top / 78px 56px no-repeat,
     url('../icons/deco/paws.svg') right bottom / 70px 40px no-repeat;
 }
-/* 🐶 멍뭉이: 얇은 연필선 + 귀 잡아당기는 강아지 + 녹아내린 강아지 */
+/* 🐶 멍뭉이: 얇은 연필선 + 귀 잡아당기는 강아지(위) + 앙! 강아지(오른쪽 위) + 쉬하는 강아지(왼쪽 아래) + 녹아내린 강아지(오른쪽 아래) */
 .calendar[data-deco="dog"] {
   --card: #fff; --text: #1d1d1d; --sub: #7a7a7a; --line: #ececec; --chip-mix: 18%; --chip-base: #fff;
   background: var(--card); color: var(--text);
@@ -497,6 +497,8 @@ button.react:active { transform: scale(.92); }
   content: ''; position: absolute; left: 0; right: 0; top: -90px; bottom: -48px; z-index: 2; pointer-events: none;
   background:
     url('../icons/deco/dog-peek.svg') center top / 130px 104px no-repeat,
+    url('../icons/stickers/dog-ang.svg') right 14px top 38px / 56px 56px no-repeat,
+    url('../icons/stickers/dog-pee.svg') left 6px bottom 2px / 60px 60px no-repeat,
     url('../icons/deco/dog-flop.svg') right 4px bottom / 100px 60px no-repeat;
 }
 .calendar[data-deco="dog"] .cal-cell.today .num { color: #fff; }
