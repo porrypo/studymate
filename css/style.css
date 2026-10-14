@@ -278,6 +278,11 @@ button.react:active { transform: scale(.92); }
 }
 .wk-item b { color: var(--c); margin-right: 4px; font-weight: 800; }
 .wk-item.done { opacity: .5; text-decoration: line-through; }
+/* 접힌 상태: 한 줄로 자르기 (펼치면 원래대로 줄바꿈) */
+.wk-cell:not(.open) .wk-item { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wk-more { align-self: flex-start; font-size: 11px; font-weight: 700; color: var(--sub); padding: 2px 6px; border-radius: 6px; }
+.wk-more:hover { background: color-mix(in srgb, var(--line) 60%, transparent); color: var(--text); }
+.wk-toggle { font-size: 11px; font-weight: 700; color: var(--theme); padding: 2px 6px; border-radius: 6px; }
 
 .feed-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; align-items: start; }
 .feed-card { margin: 0; }

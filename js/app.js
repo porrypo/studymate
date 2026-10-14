@@ -18,6 +18,7 @@
     feedMode: 'week',        // today | week
     feedScope: (() => { try { return localStorage.getItem('studymate_feed_scope') || 'auto'; } catch (e) { return 'auto'; } })(), // fav | all | auto
     feedShowQuiet: false,    // 일정 없는 친구도 펼쳐 보기
+    wkOpen: new Set(),       // 피드 주간 표에서 [더보기]로 펼친 사람
     weekStart: weekStartOf(S.today()),
     friendsTab: 'following', // following | followers
     q: '',
@@ -468,13 +469,20 @@
     const has = (u) => days.some((d) => S.todosOn(u.id, d).some((t) => S.canSee(me.id, t)));
     const active = friends.filter(has), quiet = friends.filter((u) => !has(u));
     const people = [me, ...active, ...(st.feedShowQuiet ? quiet : [])];
+    // 한 사람당 하루 3칸까지만 보이고, 더 있으면 [더보기]로 펼침
+    const SHOW = 3;
     const rows = people.map((u) => {
       const cats = Object.fromEntries(S.categories(u.id).map((c) => [c.id, c]));
-      const cells = days.map((date) => {
-        const list = S.todosOn(u.id, date).filter((t) => S.canSee(me.id, t)).sort(byTime);
-        return `<div class="wk-cell ${date === t0 ? 'today' : ''}">${list.map((t) => `<div class="wk-item ${t.done ? 'done' : ''}" style="--c:${cats[t.categoryId]?.color || '#8E8E93'}">${t.time ? `<b>${esc(t.time)}</b>` : ''}${esc(t.title)}</div>`).join('')}</div>`;
+      const open = st.wkOpen.has(u.id);
+      const lists = days.map((date) => S.todosOn(u.id, date).filter((t) => S.canSee(me.id, t)).sort(byTime));
+      const more = lists.some((l) => l.length > SHOW);
+      const cells = days.map((date, i) => {
+        const list = lists[i];
+        const shown = open ? list : list.slice(0, SHOW);
+        const hidden = list.length - shown.length;
+        return `<div class="wk-cell ${date === t0 ? 'today' : ''} ${open ? 'open' : ''}">${shown.map((t) => `<div class="wk-item ${t.done ? 'done' : ''}" style="--c:${cats[t.categoryId]?.color || '#8E8E93'}" title="${esc(t.title)}">${t.time ? `<b>${esc(t.time)}</b>` : ''}${esc(t.title)}</div>`).join('')}${hidden > 0 ? `<button class="wk-more" data-action="wk-open" data-id="${u.id}">+${hidden}개</button>` : ''}</div>`;
       }).join('');
-      return `<div class="wk-name ${u.id === me.id ? '' : 'link-row'}"><span class="wk-who" ${u.id === me.id ? '' : `data-action="open-profile" data-id="${u.id}"`}>${avatar(u, 30)}<span>${u.id === me.id ? '나' : esc(u.nickname)}</span></span>${favBtn(u, 'sm')}</div>${cells}`;
+      return `<div class="wk-name ${u.id === me.id ? '' : 'link-row'}"><span class="wk-who" ${u.id === me.id ? '' : `data-action="open-profile" data-id="${u.id}"`}>${avatar(u, 30)}<span>${u.id === me.id ? '나' : esc(u.nickname)}</span></span>${favBtn(u, 'sm')}${more ? `<button class="wk-toggle" data-action="wk-open" data-id="${u.id}">${open ? '접기 ▴' : '더보기 ▾'}</button>` : ''}</div>${cells}`;
     }).join('');
     const end = days[6];
     return `<div class="week-nav">
@@ -1087,6 +1095,7 @@
     'feed-mode'({ mode }) { st.feedMode = mode; },
     'feed-scope'({ scope }) { st.feedScope = scope; st.feedShowQuiet = false; try { localStorage.setItem('studymate_feed_scope', scope); } catch (e) { /* 무시 */ } },
     'feed-quiet'() { st.feedShowQuiet = !st.feedShowQuiet; },
+    'wk-open'({ id }) { if (st.wkOpen.has(id)) st.wkOpen.delete(id); else st.wkOpen.add(id); },
     fav({ id }) { S.toggleFavorite(id); },
 
     // 그룹
