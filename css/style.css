@@ -702,11 +702,8 @@ button.react:active { transform: scale(.92); }
   background: color-mix(in srgb, var(--c) 16%, transparent); }
 .g-member i, .busy-list i { width: 10px; height: 10px; border-radius: 50%; background: var(--c); flex: none; }
 .g-mycolor { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.pop-btn { white-space: nowrap; }
 .g-mycolor .label { margin-right: 2px; }
-.g-mycolor button, .g-mycolor label { position: relative; width: 26px; height: 26px; border-radius: 50%; cursor: pointer; border: 2.5px solid var(--card); box-shadow: 0 0 0 1.5px var(--line); }
-.g-mycolor .on { box-shadow: 0 0 0 2.5px var(--text); }
-.g-mycolor label { background: conic-gradient(#FF3B30, #FFCC00, #34C759, #30B0C7, #007AFF, #AF52DE, #FF2D55, #FF3B30); }
-.g-mycolor label input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; }
 .g-cal .chip i { font-style: normal; font-weight: 800; color: var(--c); margin-right: 0; }
 .cal-cell.past:not(.out) { opacity: .55; }
 .busy-list { list-style: none; margin: 0 0 8px; padding: 0; }
