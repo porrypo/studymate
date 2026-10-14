@@ -79,6 +79,7 @@
   // 테마는 여기에 한 줄 + style.css 에 .calendar[data-deco="이름"] 규칙만 추가하면 늘어나요
   const CAL_DECOS = [['none', '기본', '📅'], ['simple', '심플', '◻️'],
     ['flower', '봄', '🌸'], ['summer', '여름 숲', '🌲'], ['autumn', '가을', '🍁'], ['winter', '겨울', '⛄'],
+    ['ocean', '바다', '🐳'], ['mint', '민트캔디', '🍬'],
     ['bunny', '토끼', '🐰'], ['cat', '고양이', '🐱'], ['dog', '멍뭉이', '🐶']];
   // 그림 스티커 (icons/stickers/이름.svg). 이모티콘도 스티커로 붙일 수 있어요
   const ART_STICKERS = ['dog-ears', 'dog-desk', 'dog-derp', 'dog-cry', 'dog-zoom', 'bunny', 'cat', 'ribbon', 'star', 'heart', 'cloud'];

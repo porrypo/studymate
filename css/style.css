@@ -524,6 +524,41 @@ button.react:active { transform: scale(.92); }
     url('../icons/deco/winter-flakes.svg') left 0 top 0 / 80px 32px repeat-x;
 }
 
+/* 🐳 바다: 물고기 떼 + 고래 + 물방울, 아래엔 파도와 불가사리·조개 */
+.calendar[data-deco="ocean"] {
+  margin-top: 26px; margin-bottom: 30px; padding-top: 36px;
+  border: 2px solid #9ED8EE; box-shadow: 0 0 0 5px color-mix(in srgb, #9ED8EE 28%, transparent);
+}
+.calendar[data-deco="ocean"]::after {
+  content: ''; position: absolute; left: -6px; right: -6px; top: -34px; bottom: -32px; z-index: 2; pointer-events: none;
+  border-radius: 0 0 18px 18px;
+  background:
+    url('../icons/deco/ocean-sand.svg') left 10px bottom 0 / 90px 36px no-repeat,
+    url('../icons/deco/ocean-fish.svg') left top / 120px 70px no-repeat,
+    url('../icons/deco/ocean-whale.svg') right top / 120px 70px no-repeat,
+    url('../icons/deco/ocean-bubbles.svg') center top / 80px 30px repeat-x,
+    url('../icons/deco/ocean-wave.svg') left 0 bottom 18px / 80px 26px repeat-x;
+}
+
+/* 🍬 민트캔디: 민트·흰 줄무늬 테두리 + 민트 사탕·잎·초코칩 */
+.calendar[data-deco="mint"] {
+  --card: #EEFBF6; --text: #24443A; --sub: #6E9C8C; --line: #D3F1E6; --chip-mix: 18%; --chip-base: #fff;
+  color: var(--text);
+  margin-top: 22px; padding-top: 34px;
+  border: 6px solid transparent;
+  background: linear-gradient(var(--card), var(--card)) padding-box,
+              repeating-linear-gradient(-45deg, #5CD6B4 0 8px, #fff 8px 16px) border-box;
+}
+.calendar[data-deco="mint"]::after {
+  content: ''; position: absolute; left: -12px; right: -12px; top: -34px; height: 76px; z-index: 2; pointer-events: none;
+  background:
+    url('../icons/deco/mint-corner.svg') left top / 120px 76px no-repeat,
+    url('../icons/deco/mint-corner-r.svg') right top / 120px 76px no-repeat,
+    url('../icons/deco/mint-garland.svg') left 0 top 14px / 80px 32px repeat-x;
+}
+.calendar[data-deco="mint"] .cal-grid { background: #fff; border-radius: 12px; overflow: hidden; }
+.calendar[data-deco="mint"] .cal-cell.today .num { color: #fff; }
+
 /* 🐰 토끼: 분홍 달력 위로 토끼가 빼꼼 + 당근 */
 .calendar[data-deco="bunny"] {
   --card: #FFF5F8; --text: #4A3B3B; --sub: #A98A92; --line: #F6DCE4; --chip-mix: 18%; --chip-base: #fff;
