@@ -490,15 +490,15 @@ button.react:active { transform: scale(.92); }
 .calendar[data-deco="dog"] {
   --card: #fff; --text: #1d1d1d; --sub: #7a7a7a; --line: #ececec; --chip-mix: 18%; --chip-base: #fff;
   background: var(--card); color: var(--text);
-  margin-top: 110px; margin-bottom: 44px;
+  margin-top: 80px; margin-bottom: 44px;
   border: 1.6px solid #222; border-radius: 24px 18px 26px 16px / 18px 26px 16px 24px; box-shadow: 2px 3px 0 #222;
 }
 .calendar[data-deco="dog"]::after {
-  content: ''; position: absolute; left: 0; right: 0; top: -116px; bottom: -48px; z-index: 2; pointer-events: none;
+  content: ''; position: absolute; left: 0; right: 0; top: -84px; bottom: -48px; z-index: 2; pointer-events: none;
   background:
-    url('../icons/stickers/dog-pee.svg') center top 12px / 112px 112px no-repeat,
-    url('../icons/deco/dog-peek.svg') left 18px top 50px / 90px 72px no-repeat,
-    url('../icons/stickers/dog-ang.svg') right 14px top 62px / 56px 56px no-repeat,
+    url('../icons/stickers/dog-pee.svg') center top 17px / 80px 80px no-repeat,
+    url('../icons/deco/dog-peek.svg') left 22px top 16px / 85px 68px no-repeat,
+    url('../icons/stickers/dog-ang.svg') right 18px top 46px / 52px 52px no-repeat,
     url('../icons/deco/dog-flop.svg') right 4px bottom / 100px 60px no-repeat;
 }
 .calendar[data-deco="dog"] .cal-cell.today .num { color: #fff; }
