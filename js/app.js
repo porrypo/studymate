@@ -359,7 +359,7 @@
     return `${header('오늘')}
     <main class="page split">
       <div class="col-main">${cal}</div>
-      <div class="col-side" data-side="${myCal().deco}">
+      <div class="col-side">
         <div class="day-head">
           <h2>${fmtDay(st.selDate)}</h2>
           ${isToday ? '<span class="pill">오늘</span>' : ''}
@@ -601,7 +601,7 @@
       </section>
       <div class="split">
         <div class="col-main">${cal}</div>
-        <div class="col-side" data-side="${S.calStyle(u.id).deco}">
+        <div class="col-side">
           <div class="day-head"><h2>${fmtDay(date)}</h2></div>
           ${todos.length ? `<div class="card summary"><div class="label">할 일</div><div class="big-num">${done} <span>/ ${todos.length} 완료</span></div>
               <div class="progress"><div style="width:${Math.round((done / todos.length) * 100)}%"></div></div></div>
