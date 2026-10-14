@@ -734,3 +734,50 @@ button.react:active { transform: scale(.92); }
 .set-help { font-size: 12px; color: var(--sub); line-height: 1.7; padding: 8px 0 12px; margin: 0; border-bottom: 1px solid var(--line); }
 
 details.set-help summary { cursor: pointer; color: var(--theme); font-weight: 600; margin-bottom: 4px; }
+
+/* =============================================================
+   위젯 (작은 창): ?w=cal / ?w=todo
+   ============================================================= */
+html.widget-mode, html.widget-mode body { background: transparent; }
+html.widget-mode body { margin: 0; overflow: hidden; }
+.widget {
+  --ws: 1;
+  position: fixed; inset: 0; display: flex; flex-direction: column; padding: 10px 12px 12px;
+  background: color-mix(in srgb, var(--card) calc(var(--w-op, 1) * 100%), transparent);
+  color: var(--text); font-size: calc(13px * var(--ws)); overflow: hidden;
+}
+.widget.size-s { --ws: .85; padding: 8px 9px 9px; }
+.widget.size-l { --ws: 1.12; }
+.w-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; font-size: calc(15px * var(--ws)); }
+.w-head button { min-width: 26px; height: 24px; padding: 0 6px; border-radius: 7px; font-size: 12px; font-weight: 700; color: var(--sub); }
+.w-head button:hover { background: color-mix(in srgb, var(--line) 70%, transparent); color: var(--text); }
+.w-week, .w-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.w-week span { text-align: center; font-size: calc(10px * var(--ws)); color: var(--sub); font-weight: 700; padding-bottom: 3px; }
+.w-week span:first-child { color: var(--accent); }
+.w-grid { flex: 1; grid-auto-rows: 1fr; min-height: 0; }
+.w-cell { border-top: 1px solid var(--line); padding: 2px 1px; overflow: hidden; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.w-cell .num { align-self: center; width: calc(20px * var(--ws)); height: calc(20px * var(--ws)); border-radius: 50%; display: grid; place-items: center; font-size: calc(11px * var(--ws)); font-weight: 700; flex: none; }
+.w-cell.sun .num { color: var(--accent); }
+.w-cell.out { opacity: .35; }
+.w-cell.today .num { background: var(--theme); color: #fff; }
+.w-chip { flex: none; font-size: calc(9.5px * var(--ws)); line-height: 1.55; padding: 0 3px; border-radius: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  background: color-mix(in srgb, var(--c) var(--chip-mix), transparent); border-left: 2px solid var(--c); }
+.w-chip.done { opacity: .5; text-decoration: line-through; }
+.w-more { font-size: 9px; color: var(--sub); padding-left: 3px; }
+.w-dots { display: flex; justify-content: center; gap: 2px; flex-wrap: wrap; }
+.w-dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--c); }
+.w-dots i.done { opacity: .35; }
+.w-todo .progress { margin: 0 0 8px; height: 6px; }
+.w-count { font-size: calc(12px * var(--ws)); color: var(--sub); font-weight: 700; }
+.w-list { list-style: none; margin: 0; padding: 0; flex: 1; overflow-y: auto; min-height: 0; }
+.w-list li { display: flex; align-items: center; gap: 8px; padding: calc(5px * var(--ws)) 0; border-bottom: 1px solid var(--line); }
+.w-list .check { width: calc(20px * var(--ws)); height: calc(20px * var(--ws)); font-size: calc(12px * var(--ws)); flex: none; }
+.w-title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.w-title b { color: var(--c); margin-right: 4px; font-size: .9em; }
+.w-list li.done .w-title { opacity: .5; text-decoration: line-through; }
+.w-empty { color: var(--sub); justify-content: center; border: 0 !important; padding-top: 16px !important; }
+.w-add { margin-top: 6px; }
+.w-add input { width: 100%; height: calc(30px * var(--ws)); border-radius: 8px; border: 1px solid var(--line); background: transparent; padding: 0 8px; font-size: inherit; color: var(--text); }
+.seg-pick { display: flex; gap: 6px; flex-wrap: wrap; }
+.seg-pick button { height: 34px; padding: 0 14px; border-radius: 999px; border: 1.5px solid var(--line); font-size: 13px; font-weight: 600; }
+.seg-pick button.on { border-color: var(--theme); background: color-mix(in srgb, var(--theme) 12%, transparent); }

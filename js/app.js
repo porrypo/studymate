@@ -224,6 +224,75 @@
   function need(ids, from, to) { S.prefetch(ids, from, to).then((changed) => { if (changed) render(); }); }
 
   // =============================================================
+  //  위젯: 작은 창으로 띄워 바탕화면 구석에 두는 달력 / 오늘 할 일
+  //  주소 뒤에 ?w=cal 또는 ?w=todo, &size=s|m|l, &op=배경 진하기(20~100)
+  // =============================================================
+  const WIDGET = (() => {
+    const q = new URLSearchParams(location.search);
+    const w = q.get('w');
+    if (w !== 'cal' && w !== 'todo') return null;
+    const size = ['s', 'm', 'l'].includes(q.get('size')) ? q.get('size') : 'm';
+    const op = Math.min(100, Math.max(20, Number(q.get('op')) || 100));
+    return { w, size, op };
+  })();
+  const WIDGET_SIZES = { cal: { s: [260, 250], m: [340, 340], l: [460, 470] }, todo: { s: [240, 300], m: [300, 400], l: [360, 520] } };
+  if (WIDGET) {
+    document.documentElement.classList.add('widget-mode');
+    document.documentElement.style.setProperty('--w-op', WIDGET.op / 100);
+    document.title = WIDGET.w === 'cal' ? '갓생 달력' : '오늘 할 일';
+  }
+  function widgetUrl(w, size, op) {
+    return `${location.origin}${location.pathname}?w=${w}&size=${size}&op=${op}`;
+  }
+
+  function renderWidget() {
+    const me = S.me();
+    const { w, size } = WIDGET;
+    if (w === 'cal') {
+      const month = st.calMonth;
+      const [y, m] = month.split('-').map(Number);
+      const first = new Date(y, m - 1, 1);
+      const start = S.addDays(S.fmtDate(first), -first.getDay());
+      const weeks = Math.ceil((first.getDay() + new Date(y, m, 0).getDate()) / 7);
+      need([me.id], start, S.addDays(start, weeks * 7 - 1));
+      const cats = Object.fromEntries(S.categories(me.id).map((c) => [c.id, c]));
+      const max = { s: 0, m: 2, l: 3 }[size];
+      const t0 = S.today();
+      let cells = '';
+      for (let i = 0; i < weeks * 7; i++) {
+        const date = S.addDays(start, i);
+        const d = S.parseDate(date);
+        const list = S.todosOn(me.id, date).sort(byTime);
+        const marks = max
+          ? list.slice(0, max).map((t) => `<div class="w-chip ${t.done ? 'done' : ''}" style="--c:${cats[t.categoryId]?.color || '#8E8E93'}">${esc(t.title)}</div>`).join('') + (list.length > max ? `<div class="w-more">+${list.length - max}</div>` : '')
+          : `<div class="w-dots">${list.slice(0, 4).map((t) => `<i style="--c:${cats[t.categoryId]?.color || '#8E8E93'}" class="${t.done ? 'done' : ''}"></i>`).join('')}</div>`;
+        cells += `<div class="w-cell ${d.getMonth() + 1 !== m ? 'out' : ''} ${date === t0 ? 'today' : ''} ${d.getDay() === 0 ? 'sun' : ''}"><span class="num">${d.getDate()}</span>${marks}</div>`;
+      }
+      return `<div class="widget w-cal size-${size}">
+        <div class="w-head"><b>${y}.${m}</b>
+          <span><button data-action="cal-move" data-scope="today" data-dir="-1" aria-label="이전 달">‹</button><button data-action="cal-today" data-scope="today">오늘</button><button data-action="cal-move" data-scope="today" data-dir="1" aria-label="다음 달">›</button></span></div>
+        <div class="w-week">${WEEK.map((x) => `<span>${x}</span>`).join('')}</div>
+        <div class="w-grid">${cells}</div>
+      </div>`;
+    }
+    // 오늘 할 일
+    const date = S.today();
+    need([me.id], date, date);
+    const cats = Object.fromEntries(S.categories(me.id).map((c) => [c.id, c]));
+    const todos = S.todosOn(me.id, date).sort(byTime);
+    const done = todos.filter((t) => t.done).length;
+    const firstCat = S.categories(me.id)[0];
+    return `<div class="widget w-todo size-${size}">
+      <div class="w-head"><b>${fmtDay(date)}</b><span class="w-count">${done}/${todos.length}</span></div>
+      <div class="progress"><div style="width:${todos.length ? Math.round((done / todos.length) * 100) : 0}%"></div></div>
+      <ul class="w-list">${todos.map((t) => `<li class="${t.done ? 'done' : ''}" style="--c:${cats[t.categoryId]?.color || '#8E8E93'}">
+        <button class="check ${t.done ? 'on' : ''}" data-action="toggle" data-id="${t.id}" aria-label="완료">${t.done ? '✓' : ''}</button>
+        <span class="w-title">${t.time ? `<b>${esc(t.time)}</b>` : ''}${esc(t.title)}</span></li>`).join('') || '<li class="w-empty">오늘 할 일이 없어요</li>'}</ul>
+      ${firstCat ? `<form class="w-add" data-form="quick-add" data-cat="${firstCat.id}"><input name="title" placeholder="+ 할 일 추가" maxlength="80" autocomplete="off"></form>` : ''}
+    </div>`;
+  }
+
+  // =============================================================
   //  화면 그리기
   // =============================================================
   function render() {
@@ -231,6 +300,7 @@
     const me = S.me();
     if (!me) { $app.innerHTML = renderAuth(); return; }
     if (me.needsSetup) { $app.innerHTML = renderSetup(); return; }
+    if (WIDGET) { $app.innerHTML = renderWidget(); return; }
     let body;
     if (st.view?.type === 'profile') body = renderProfile(st.view.userId);
     else if (st.view?.type === 'notifs') body = renderNotifs();
@@ -682,6 +752,11 @@
         ${renderCalSettings()}
       </div>
 
+      <h3 class="section-title">위젯</h3>
+      <div class="card settings">
+        <button class="set-row" data-action="open-widget"><span>바탕화면 위젯 만들기<br><small class="muted">작은 창으로 달력이나 오늘 할 일을 띄워 두기</small></span><span class="chev">›</span></button>
+      </div>
+
       <h3 class="section-title">일정</h3>
       <div class="card settings">
         <label class="set-row"><span>새 할 일 기본 공개범위</span>
@@ -1035,6 +1110,18 @@
         ${m.error ? `<p class="error">${esc(m.error)}</p>` : ''}
         <div class="modal-actions"><button type="button" class="btn ghost" data-action="close-modal">취소</button><button type="submit" class="btn primary" ${st.busy ? 'disabled' : ''}>바꾸기</button></div>
       </form>`;
+    } else if (m.type === 'widget') {
+      const opt = (k, v, label) => `<button type="button" class="${m[k] === v ? 'on' : ''}" data-action="w-set" data-k="${k}" data-v="${v}">${label}</button>`;
+      inner = `<h2>바탕화면 위젯</h2>
+      <div class="field"><span>종류</span><div class="seg-pick">${opt('w', 'cal', '달력')}${opt('w', 'todo', '오늘 할 일')}</div></div>
+      <div class="field"><span>크기</span><div class="seg-pick">${opt('size', 's', '작게')}${opt('size', 'm', '보통')}${opt('size', 'l', '크게')}</div></div>
+      <div class="field"><span>배경 진하기</span><div class="seg-pick">${opt('op', 100, '100%')}${opt('op', 85, '85%')}${opt('op', 70, '70%')}${opt('op', 50, '50%')}</div></div>
+      <div class="modal-actions"><button type="button" class="btn ghost" data-action="w-copy">주소 복사</button><button type="button" class="btn primary" data-action="w-open">위젯 열기</button></div>
+      <details class="set-help"><summary>바탕화면에 계속 두는 방법</summary>
+        <b>Chrome</b>: 위젯 창에서 주소를 복사해 새 탭에 붙여넣기 → 오른쪽 위 ⋮ → 전송, 저장, 공유 → <b>바로가기 만들기</b> → '창으로 열기' 체크 → 만들기.<br>
+        이제 Dock·Launchpad에서 위젯만 따로 열 수 있어요. 창 크기를 줄여 화면 구석에 두세요.<br>
+        <b>Safari</b>: 위젯 주소를 연 상태에서 메뉴 파일 → <b>Dock에 추가</b>.<br>
+        · 위젯 창도 다른 창처럼 움직이는 창이라, 다른 창 뒤로 갈 수 있어요.</details>`;
     } else if (m.type === 'delete-account') {
       inner = `<h2>회원 탈퇴</h2>
       <form data-form="delete-account">
@@ -1191,6 +1278,20 @@
     },
     'open-password'() { st.modal = { type: 'password' }; },
     'open-delete-account'() { st.modal = { type: 'delete-account' }; },
+    'open-widget'() { st.modal = { type: 'widget', w: 'cal', size: 'm', op: 100 }; },
+    'w-set'({ k, v }) { st.modal[k] = k === 'op' ? +v : v; },
+    'w-open'() {
+      const { w, size, op } = st.modal;
+      const [width, height] = WIDGET_SIZES[w][size];
+      const win = window.open(widgetUrl(w, size, op), 'gsm-widget-' + w, `popup,width=${width},height=${height}`);
+      if (!win) alert('팝업이 막혔어요. 주소창 오른쪽의 팝업 차단 아이콘을 눌러 허용해 주세요.');
+      return false;
+    },
+    'w-copy'() {
+      const { w, size, op } = st.modal;
+      navigator.clipboard?.writeText(widgetUrl(w, size, op)).then(() => alert('위젯 주소를 복사했어요.'), () => alert(widgetUrl(w, size, op)));
+      return false;
+    },
     logout() {
       if (!confirm('로그아웃할까요?')) return false;
       Object.assign(st, { tab: 'today', view: null, modal: null, authMode: 'login', authError: '', hasPw: undefined, ...FRESH });
@@ -1255,7 +1356,7 @@
     },
     'quick-add'(f) {
       const catId = f.dataset.cat;
-      if (S.addTodo({ categoryId: catId, title: f.title.value, date: st.selDate })) {
+      if (S.addTodo({ categoryId: catId, title: f.title.value, date: WIDGET ? S.today() : st.selDate })) {
         render();
         document.querySelector(`form[data-cat="${catId}"] input`)?.focus(); // 연속 입력
       }
